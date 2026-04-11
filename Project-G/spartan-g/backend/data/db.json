@@ -1,0 +1,468 @@
+{
+  "counters": {
+    "cycleId": 3,
+    "assessmentId": 4,
+    "responseId": 43,
+    "esmEntryId": 2,
+    "classificationId": 3,
+    "actionId": 3,
+    "notifId": 3
+  },
+  "students": [
+    {
+      "studentId": "2026-0001",
+      "name": "Test Student",
+      "email": "test@example.com",
+      "passwordHash": "$2a$10$UmHyd/.I0CInQSsPMAPl6Ofoli8cj62WyLDpLI.yhB.2dY5OTF5Ue",
+      "college": "CICS",
+      "yearLevel": 2,
+      "sex": "F",
+      "consentFlag": true,
+      "registeredAt": "2026-04-11T10:32:31.637Z"
+    },
+    {
+      "studentId": "23012",
+      "name": "Full Name",
+      "email": null,
+      "passwordHash": "$2a$10$snGT7M5MN5xa9EsTEtMoUuhR33rlfAvV8tCopN16nlNKHfKNC.QZm",
+      "college": "BSIT",
+      "yearLevel": 4,
+      "sex": "M",
+      "consentFlag": true,
+      "registeredAt": "2026-04-11T10:36:18.414Z"
+    }
+  ],
+  "assessmentCycles": [
+    {
+      "cycleId": 1,
+      "studentId": "2026-0001",
+      "startDate": "2026-04-11",
+      "endDate": null,
+      "status": "Active"
+    },
+    {
+      "cycleId": 2,
+      "studentId": "23012",
+      "startDate": "2026-04-11",
+      "endDate": null,
+      "status": "Active"
+    }
+  ],
+  "assessments": [
+    {
+      "assessmentId": 1,
+      "studentId": "2026-0001",
+      "type": "DASS21",
+      "submittedAt": "2026-04-11T10:32:31.759Z",
+      "cycleId": 1
+    },
+    {
+      "assessmentId": 2,
+      "studentId": "23012",
+      "type": "DASS21",
+      "submittedAt": "2026-04-11T10:37:05.291Z",
+      "cycleId": 2
+    },
+    {
+      "assessmentId": 3,
+      "studentId": "23012",
+      "type": "CSSRS",
+      "submittedAt": "2026-04-11T10:37:26.133Z",
+      "cycleId": 2
+    }
+  ],
+  "dass21Responses": [
+    {
+      "responseId": 1,
+      "assessmentId": 1,
+      "itemNumber": 1,
+      "score": 1,
+      "subscale": "S"
+    },
+    {
+      "responseId": 2,
+      "assessmentId": 1,
+      "itemNumber": 2,
+      "score": 0,
+      "subscale": "A"
+    },
+    {
+      "responseId": 3,
+      "assessmentId": 1,
+      "itemNumber": 3,
+      "score": 3,
+      "subscale": "D"
+    },
+    {
+      "responseId": 4,
+      "assessmentId": 1,
+      "itemNumber": 4,
+      "score": 0,
+      "subscale": "A"
+    },
+    {
+      "responseId": 5,
+      "assessmentId": 1,
+      "itemNumber": 5,
+      "score": 0,
+      "subscale": "D"
+    },
+    {
+      "responseId": 6,
+      "assessmentId": 1,
+      "itemNumber": 6,
+      "score": 0,
+      "subscale": "S"
+    },
+    {
+      "responseId": 7,
+      "assessmentId": 1,
+      "itemNumber": 7,
+      "score": 0,
+      "subscale": "A"
+    },
+    {
+      "responseId": 8,
+      "assessmentId": 1,
+      "itemNumber": 8,
+      "score": 3,
+      "subscale": "S"
+    },
+    {
+      "responseId": 9,
+      "assessmentId": 1,
+      "itemNumber": 9,
+      "score": 0,
+      "subscale": "A"
+    },
+    {
+      "responseId": 10,
+      "assessmentId": 1,
+      "itemNumber": 10,
+      "score": 1,
+      "subscale": "D"
+    },
+    {
+      "responseId": 11,
+      "assessmentId": 1,
+      "itemNumber": 11,
+      "score": 3,
+      "subscale": "S"
+    },
+    {
+      "responseId": 12,
+      "assessmentId": 1,
+      "itemNumber": 12,
+      "score": 0,
+      "subscale": "S"
+    },
+    {
+      "responseId": 13,
+      "assessmentId": 1,
+      "itemNumber": 13,
+      "score": 3,
+      "subscale": "D"
+    },
+    {
+      "responseId": 14,
+      "assessmentId": 1,
+      "itemNumber": 14,
+      "score": 3,
+      "subscale": "S"
+    },
+    {
+      "responseId": 15,
+      "assessmentId": 1,
+      "itemNumber": 15,
+      "score": 2,
+      "subscale": "A"
+    },
+    {
+      "responseId": 16,
+      "assessmentId": 1,
+      "itemNumber": 16,
+      "score": 0,
+      "subscale": "D"
+    },
+    {
+      "responseId": 17,
+      "assessmentId": 1,
+      "itemNumber": 17,
+      "score": 2,
+      "subscale": "D"
+    },
+    {
+      "responseId": 18,
+      "assessmentId": 1,
+      "itemNumber": 18,
+      "score": 0,
+      "subscale": "S"
+    },
+    {
+      "responseId": 19,
+      "assessmentId": 1,
+      "itemNumber": 19,
+      "score": 2,
+      "subscale": "A"
+    },
+    {
+      "responseId": 20,
+      "assessmentId": 1,
+      "itemNumber": 20,
+      "score": 1,
+      "subscale": "A"
+    },
+    {
+      "responseId": 21,
+      "assessmentId": 1,
+      "itemNumber": 21,
+      "score": 2,
+      "subscale": "D"
+    },
+    {
+      "responseId": 22,
+      "assessmentId": 2,
+      "itemNumber": 1,
+      "score": 1,
+      "subscale": "S"
+    },
+    {
+      "responseId": 23,
+      "assessmentId": 2,
+      "itemNumber": 2,
+      "score": 2,
+      "subscale": "A"
+    },
+    {
+      "responseId": 24,
+      "assessmentId": 2,
+      "itemNumber": 3,
+      "score": 2,
+      "subscale": "D"
+    },
+    {
+      "responseId": 25,
+      "assessmentId": 2,
+      "itemNumber": 4,
+      "score": 3,
+      "subscale": "A"
+    },
+    {
+      "responseId": 26,
+      "assessmentId": 2,
+      "itemNumber": 5,
+      "score": 2,
+      "subscale": "D"
+    },
+    {
+      "responseId": 27,
+      "assessmentId": 2,
+      "itemNumber": 6,
+      "score": 2,
+      "subscale": "S"
+    },
+    {
+      "responseId": 28,
+      "assessmentId": 2,
+      "itemNumber": 7,
+      "score": 2,
+      "subscale": "A"
+    },
+    {
+      "responseId": 29,
+      "assessmentId": 2,
+      "itemNumber": 8,
+      "score": 3,
+      "subscale": "S"
+    },
+    {
+      "responseId": 30,
+      "assessmentId": 2,
+      "itemNumber": 9,
+      "score": 2,
+      "subscale": "A"
+    },
+    {
+      "responseId": 31,
+      "assessmentId": 2,
+      "itemNumber": 10,
+      "score": 2,
+      "subscale": "D"
+    },
+    {
+      "responseId": 32,
+      "assessmentId": 2,
+      "itemNumber": 11,
+      "score": 2,
+      "subscale": "S"
+    },
+    {
+      "responseId": 33,
+      "assessmentId": 2,
+      "itemNumber": 12,
+      "score": 3,
+      "subscale": "S"
+    },
+    {
+      "responseId": 34,
+      "assessmentId": 2,
+      "itemNumber": 13,
+      "score": 1,
+      "subscale": "D"
+    },
+    {
+      "responseId": 35,
+      "assessmentId": 2,
+      "itemNumber": 14,
+      "score": 2,
+      "subscale": "S"
+    },
+    {
+      "responseId": 36,
+      "assessmentId": 2,
+      "itemNumber": 15,
+      "score": 2,
+      "subscale": "A"
+    },
+    {
+      "responseId": 37,
+      "assessmentId": 2,
+      "itemNumber": 16,
+      "score": 1,
+      "subscale": "D"
+    },
+    {
+      "responseId": 38,
+      "assessmentId": 2,
+      "itemNumber": 17,
+      "score": 2,
+      "subscale": "D"
+    },
+    {
+      "responseId": 39,
+      "assessmentId": 2,
+      "itemNumber": 18,
+      "score": 3,
+      "subscale": "S"
+    },
+    {
+      "responseId": 40,
+      "assessmentId": 2,
+      "itemNumber": 19,
+      "score": 2,
+      "subscale": "A"
+    },
+    {
+      "responseId": 41,
+      "assessmentId": 2,
+      "itemNumber": 20,
+      "score": 2,
+      "subscale": "A"
+    },
+    {
+      "responseId": 42,
+      "assessmentId": 2,
+      "itemNumber": 21,
+      "score": 2,
+      "subscale": "D"
+    }
+  ],
+  "esmEntries": [
+    {
+      "entryId": 1,
+      "studentId": "23012",
+      "promptTime": "2026-04-11T10:37:19.970Z",
+      "moodScore": 6,
+      "energyScore": 5,
+      "stressorCategory": "academic",
+      "physicalSymptom": false,
+      "helpIntent": false
+    }
+  ],
+  "riskClassifications": [
+    {
+      "classificationId": 1,
+      "studentId": "2026-0001",
+      "cycleId": 1,
+      "riskLevel": "High",
+      "trajectory": null,
+      "generatedAt": "2026-04-11T10:32:31.759Z",
+      "meta": {
+        "source": "DASS21",
+        "subscaleScores": {
+          "depression": 22,
+          "anxiety": 10,
+          "stress": 20
+        },
+        "subscaleLabels": {
+          "D": "Severe",
+          "A": "Moderate",
+          "S": "Moderate"
+        }
+      }
+    },
+    {
+      "classificationId": 2,
+      "studentId": "23012",
+      "cycleId": 2,
+      "riskLevel": "Crisis",
+      "trajectory": null,
+      "generatedAt": "2026-04-11T10:37:05.291Z",
+      "meta": {
+        "source": "DASS21",
+        "subscaleScores": {
+          "depression": 24,
+          "anxiety": 30,
+          "stress": 32
+        },
+        "subscaleLabels": {
+          "D": "Severe",
+          "A": "Extremely Severe",
+          "S": "Severe"
+        }
+      }
+    }
+  ],
+  "referralActions": [
+    {
+      "actionId": 1,
+      "classificationId": 1,
+      "actionType": "Send anonymized OGC notification",
+      "dispatchedAt": "2026-04-11T10:32:31.759Z",
+      "acknowledgedAt": null
+    },
+    {
+      "actionId": 2,
+      "classificationId": 2,
+      "actionType": "Send priority alert with identity + show hotline",
+      "dispatchedAt": "2026-04-11T10:37:05.291Z",
+      "acknowledgedAt": null
+    }
+  ],
+  "facilitators": [
+    {
+      "facilitatorId": 1,
+      "name": "Default OGC",
+      "assignedCollege": "All",
+      "email": "ogc@campus.local"
+    }
+  ],
+  "notifications": [
+    {
+      "notifId": 1,
+      "facilitatorId": 1,
+      "classificationId": 1,
+      "anonymizedFlag": true,
+      "sentAt": "2026-04-11T10:32:31.759Z",
+      "message": "High risk (anonymized): StudentID=2026-0001, DASS summary D=22, A=10, S=20"
+    },
+    {
+      "notifId": 2,
+      "facilitatorId": 1,
+      "classificationId": 2,
+      "anonymizedFlag": false,
+      "sentAt": "2026-04-11T10:37:05.291Z",
+      "message": "CRISIS alert: Full Name (23012) reached extremely severe DASS threshold."
+    }
+  ]
+}
