@@ -8,8 +8,11 @@ This initial build includes:
 
 ### 1) Backend
 
-```powershell
-cd "spartan-g/backend"
+Copy the example env file and edit it if needed:
+
+```bash
+cd "Project-G/spartan-g/backend"
+cp .env.example .env
 npm install
 npm run dev
 ```
@@ -18,11 +21,21 @@ Runs on `http://localhost:3001`.
 
 ### 2) Student Portal
 
+**Windows (PowerShell):**
+
 ```powershell
-cd "spartan-g/student-portal"
+cd "Project-G/spartan-g/student-portal"
 npm install
 $env:VITE_API_BASE_URL="http://localhost:3001"
 npm run dev
+```
+
+**macOS / Linux (bash/zsh):**
+
+```bash
+cd "Project-G/spartan-g/student-portal"
+npm install
+VITE_API_BASE_URL="http://localhost:3001" npm run dev
 ```
 
 Runs on `http://localhost:5175`.
