@@ -30,6 +30,17 @@
       "sex": "M",
       "consentFlag": true,
       "registeredAt": "2026-04-11T10:36:18.414Z"
+    },
+    {
+      "studentId": "23-37187",
+      "name": "Jesus Justin Mercado",
+      "email": null,
+      "passwordHash": "$2a$10$myyprhDtCs./Kl8dQlTA2uF7JAvTSzoHdXmEP4/93eNnPm.wgj07m",
+      "college": "CICS",
+      "yearLevel": 3,
+      "sex": "M",
+      "consentFlag": true,
+      "registeredAt": "2026-05-02T14:39:32.482Z"
     }
   ],
   "assessmentCycles": [

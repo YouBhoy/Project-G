@@ -215,77 +215,95 @@ export default function App() {
 
   if (mode !== 'app') {
     return (
-      <main className="shell">
-        <section className="card auth-card">
-          <h1>SPARTAN-G Student Side</h1>
-          <p>Temporary standalone auth for testing before portal integration.</p>
-
-          <div className="switch-row">
-            <button className={mode === 'login' ? 'active' : ''} onClick={() => setMode('login')} type="button">Login</button>
-            <button className={mode === 'signup' ? 'active' : ''} onClick={() => setMode('signup')} type="button">Sign Up</button>
+      <>
+        <header className="inst-header">
+          <div className="inst-logo"><img src="/assets/Batangas_State_Logo.png" alt="Batangas State University seal" /></div>
+          <div className="inst-wordmark">
+            <span>BATANGAS STATE UNIVERSITY</span>
+            <span className="tagline">The National Engineering University</span>
           </div>
+        </header>
 
-          {mode === 'login' ? (
-            <form onSubmit={handleLoginSubmit} className="form-grid">
-              <label>
-                Student ID
-                <input value={loginForm.studentId} onChange={(e) => setLoginForm((p) => ({ ...p, studentId: e.target.value }))} required />
-              </label>
-              <label>
-                Password
-                <input type="password" value={loginForm.password} onChange={(e) => setLoginForm((p) => ({ ...p, password: e.target.value }))} required />
-              </label>
-              <button disabled={loading} type="submit">{loading ? 'Logging in...' : 'Login'}</button>
-            </form>
-          ) : (
-            <form onSubmit={handleSignupSubmit} className="form-grid">
-              <label>
-                Student ID
-                <input value={signupForm.studentId} onChange={(e) => setSignupForm((p) => ({ ...p, studentId: e.target.value }))} required />
-              </label>
-              <label>
-                Full Name
-                <input value={signupForm.name} onChange={(e) => setSignupForm((p) => ({ ...p, name: e.target.value }))} required />
-              </label>
-              <label>
-                Email (optional)
-                <input value={signupForm.email} onChange={(e) => setSignupForm((p) => ({ ...p, email: e.target.value }))} />
-              </label>
-              <label>
-                Password
-                <input type="password" value={signupForm.password} onChange={(e) => setSignupForm((p) => ({ ...p, password: e.target.value }))} required />
-              </label>
-              <label>
-                College
-                <input value={signupForm.college} onChange={(e) => setSignupForm((p) => ({ ...p, college: e.target.value }))} required />
-              </label>
-              <label>
-                Year Level
-                <input type="number" min="1" max="8" value={signupForm.yearLevel} onChange={(e) => setSignupForm((p) => ({ ...p, yearLevel: Number(e.target.value) }))} required />
-              </label>
-              <label>
-                Sex
-                <select value={signupForm.sex} onChange={(e) => setSignupForm((p) => ({ ...p, sex: e.target.value }))}>
-                  <option value="M">M</option>
-                  <option value="F">F</option>
-                </select>
-              </label>
-              <button disabled={loading} type="submit">{loading ? 'Creating...' : 'Create account'}</button>
-            </form>
-          )}
+        <main className="shell">
+          <section className="card auth-card">
+            <div className="auth-banner">
+              <div className="inst-logo"><img src="/assets/Batangas_State_Logo.png" alt="Batangas State University seal" /></div>
+              <h1>SPARTAN-G Student Side</h1>
+              <p>Temporary standalone auth for testing before portal integration.</p>
+            </div>
 
-          {error ? <p className="error">{error}</p> : null}
-        </section>
-      </main>
+            <div className="auth-body">
+              <div className="switch-row">
+                <button className={mode === 'login' ? 'active' : ''} onClick={() => setMode('login')} type="button">Login</button>
+                <button className={mode === 'signup' ? 'active' : ''} onClick={() => setMode('signup')} type="button">Sign Up</button>
+              </div>
+
+              {mode === 'login' ? (
+                <form onSubmit={handleLoginSubmit} className="form-grid">
+                  <label>
+                    Student ID
+                    <input value={loginForm.studentId} onChange={(e) => setLoginForm((p) => ({ ...p, studentId: e.target.value }))} required />
+                  </label>
+                  <label>
+                    Password
+                    <input type="password" value={loginForm.password} onChange={(e) => setLoginForm((p) => ({ ...p, password: e.target.value }))} required />
+                  </label>
+                  <button disabled={loading} type="submit">{loading ? 'Logging in...' : 'Login'}</button>
+                </form>
+              ) : (
+                <form onSubmit={handleSignupSubmit} className="form-grid">
+                  <label>
+                    Student ID
+                    <input value={signupForm.studentId} onChange={(e) => setSignupForm((p) => ({ ...p, studentId: e.target.value }))} required />
+                  </label>
+                  <label>
+                    Full Name
+                    <input value={signupForm.name} onChange={(e) => setSignupForm((p) => ({ ...p, name: e.target.value }))} required />
+                  </label>
+                  <label>
+                    Email (optional)
+                    <input value={signupForm.email} onChange={(e) => setSignupForm((p) => ({ ...p, email: e.target.value }))} />
+                  </label>
+                  <label>
+                    Password
+                    <input type="password" value={signupForm.password} onChange={(e) => setSignupForm((p) => ({ ...p, password: e.target.value }))} required />
+                  </label>
+                  <label>
+                    College
+                    <input value={signupForm.college} onChange={(e) => setSignupForm((p) => ({ ...p, college: e.target.value }))} required />
+                  </label>
+                  <label>
+                    Year Level
+                    <input type="number" min="1" max="8" value={signupForm.yearLevel} onChange={(e) => setSignupForm((p) => ({ ...p, yearLevel: Number(e.target.value) }))} required />
+                  </label>
+                  <label>
+                    Sex
+                    <select value={signupForm.sex} onChange={(e) => setSignupForm((p) => ({ ...p, sex: e.target.value }))}>
+                      <option value="M">M</option>
+                      <option value="F">F</option>
+                    </select>
+                  </label>
+                  <button disabled={loading} type="submit">{loading ? 'Creating...' : 'Create account'}</button>
+                </form>
+              )}
+
+              {error ? <p className="error">{error}</p> : null}
+            </div>
+          </section>
+        </main>
+
+        <footer className="inst-footer">© {new Date().getFullYear()} Batangas State University — SPARTAN-G Student Wellbeing Portal</footer>
+      </>
     );
   }
 
   return (
-    <main className="shell app-shell">
-      <header className="topbar card">
-        <div>
-          <h1>Student Wellbeing Assessment</h1>
-          <p>{student?.name} ({student?.studentId})</p>
+    <>
+      <header className="inst-header">
+        <div className="inst-logo"><img src="/assets/Batangas_State_Logo.png" alt="Batangas State University seal" /></div>
+        <div className="inst-wordmark">
+          <span>BATANGAS STATE UNIVERSITY</span>
+          <span className="tagline">The National Engineering University</span>
         </div>
         <div className="topbar-actions">
           <button type="button" className="muted-btn" onClick={() => setShowConsentModal(true)}>Manage Consent</button>
@@ -293,40 +311,52 @@ export default function App() {
         </div>
       </header>
 
-      <nav className="tabs card">
-        {pages.map((page) => {
-          const blocked = !canTakeAssessments && page.key !== 'dashboard';
-          return (
-            <button
-              key={page.key}
-              type="button"
-              onClick={() => {
-                goToPage(page.key);
-              }}
-              disabled={blocked}
-              className={activePage === page.key ? 'active' : ''}
-              title={blocked ? 'Consent required first' : ''}
-            >
-              {page.label}
-            </button>
-          );
-        })}
-      </nav>
+      <main className="shell app-shell">
+        <header className="topbar card">
+          <div>
+            <h1>Student Wellbeing Assessment</h1>
+            <p>{student?.name} ({student?.studentId})</p>
+          </div>
+        </header>
+
+        <nav className="tabs">
+          {pages.map((page) => {
+            const blocked = !canTakeAssessments && page.key !== 'dashboard';
+            return (
+              <button
+                key={page.key}
+                type="button"
+                onClick={() => {
+                  goToPage(page.key);
+                }}
+                disabled={blocked}
+                className={activePage === page.key ? 'active' : ''}
+                title={blocked ? 'Consent required first' : ''}
+              >
+                {page.label}
+              </button>
+            );
+          })}
+        </nav>
 
       {showConsentModal ? (
         <div className="modal-backdrop" role="dialog" aria-modal="true" aria-label="Consent Required">
           <section className="modal-card">
-            <h2>Digital Informed Consent (Required)</h2>
-            <p>
-              Before using DASS-21, C-SSRS Lite, or ESM Check-in, you must acknowledge digital informed consent.
-            </p>
-            <p>
-              You may withdraw anytime. If withdrawn, assessment access will be blocked until you consent again.
-            </p>
-            <p>Status: <strong>{student?.consentFlag ? 'Consented' : 'Not Consented'}</strong></p>
-            <div className="row">
-              <button type="button" onClick={() => submitConsent(true)} disabled={loading}>I Consent</button>
-              <button type="button" className="muted-btn" onClick={() => submitConsent(false)} disabled={loading}>Withdraw Consent</button>
+            <div className="modal-header">
+              <h2>Digital Informed Consent (Required)</h2>
+            </div>
+            <div className="modal-body">
+              <p>
+                Before using DASS-21, C-SSRS Lite, or ESM Check-in, you must acknowledge digital informed consent.
+              </p>
+              <p>
+                You may withdraw anytime. If withdrawn, assessment access will be blocked until you consent again.
+              </p>
+              <p>Status: <strong>{student?.consentFlag ? 'Consented' : 'Not Consented'}</strong></p>
+              <div className="row">
+                <button type="button" onClick={() => submitConsent(true)} disabled={loading}>I Consent</button>
+                <button type="button" className="muted-btn" onClick={() => submitConsent(false)} disabled={loading}>Withdraw Consent</button>
+              </div>
             </div>
           </section>
         </div>
@@ -565,6 +595,9 @@ export default function App() {
       ) : null}
 
       {error ? <p className="error global-error">{error}</p> : null}
-    </main>
+      </main>
+
+      <footer className="inst-footer">© {new Date().getFullYear()} Batangas State University — SPARTAN-G Student Wellbeing Portal</footer>
+    </>
   );
 }
