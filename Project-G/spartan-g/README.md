@@ -16,6 +16,8 @@ npm run dev
 
 Runs on `http://localhost:3001`.
 
+The backend stores data in SQLite at `backend/data/spartan-g.sqlite` by default. To switch to MySQL, set `DB_CLIENT=mysql` in `backend/.env` and provide MySQL connection settings.
+
 ### 2) Student Portal
 
 ```powershell

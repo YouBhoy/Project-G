@@ -3,8 +3,7 @@ import cors from 'cors';
 import dotenv from 'dotenv';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
-import fs from 'node:fs';
-import path from 'node:path';
+import { readDb, writeDb } from './storage/index.js';
 
 dotenv.config();
 
@@ -14,7 +13,6 @@ app.use(express.json({ limit: '1mb' }));
 
 const PORT = Number(process.env.PORT || 3001);
 const JWT_SECRET = process.env.JWT_SECRET || 'spartan-g-dev-secret';
-const DB_PATH = path.resolve('data/db.json');
 
 const DASS_SUBSCALES = {
   D: [3, 5, 10, 13, 16, 17, 21],
@@ -31,45 +29,6 @@ const DASS_QUESTIONS = Array.from({ length: 21 }, (_, i) => {
     text: `Dummy DASS-21 Question ${itemNumber}: Over the past week, I felt sample statement ${itemNumber}.`
   };
 });
-
-function defaultDb() {
-  return {
-    counters: {
-      cycleId: 1,
-      assessmentId: 1,
-      responseId: 1,
-      esmEntryId: 1,
-      classificationId: 1,
-      actionId: 1,
-      notifId: 1
-    },
-    students: [],
-    assessmentCycles: [],
-    assessments: [],
-    dass21Responses: [],
-    esmEntries: [],
-    riskClassifications: [],
-    referralActions: [],
-    facilitators: [
-      { facilitatorId: 1, name: 'Default OGC', assignedCollege: 'All', email: 'ogc@campus.local' }
-    ],
-    notifications: []
-  };
-}
-
-function readDb() {
-  if (!fs.existsSync(DB_PATH)) {
-    const initial = defaultDb();
-    fs.mkdirSync(path.dirname(DB_PATH), { recursive: true });
-    fs.writeFileSync(DB_PATH, JSON.stringify(initial, null, 2));
-    return initial;
-  }
-  return JSON.parse(fs.readFileSync(DB_PATH, 'utf8'));
-}
-
-function writeDb(db) {
-  fs.writeFileSync(DB_PATH, JSON.stringify(db, null, 2));
-}
 
 function nowIso() {
   return new Date().toISOString();
@@ -94,8 +53,8 @@ function auth(req, res, next) {
   }
 }
 
-function ensureConsent(req, res, next) {
-  const db = readDb();
+async function ensureConsent(req, res, next) {
+  const db = await readDb();
   const student = db.students.find((s) => s.studentId === req.user.studentId);
   if (!student) {
     return res.status(404).json({ success: false, message: 'Student not found.' });
@@ -269,7 +228,7 @@ app.post('/api/auth/signup', async (req, res) => {
     return res.status(400).json({ success: false, message: 'Missing required signup fields.' });
   }
 
-  const db = readDb();
+  const db = await readDb();
   const exists = db.students.find((s) => s.studentId === studentId || (email && s.email === email));
   if (exists) {
     return res.status(409).json({ success: false, message: 'Student already exists.' });
@@ -288,7 +247,7 @@ app.post('/api/auth/signup', async (req, res) => {
     registeredAt: nowIso()
   });
 
-  writeDb(db);
+  await writeDb(db);
   return res.status(201).json({ success: true, message: 'Signup successful.' });
 });
 
@@ -298,7 +257,7 @@ app.post('/api/auth/login', async (req, res) => {
     return res.status(400).json({ success: false, message: 'studentId and password are required.' });
   }
 
-  const db = readDb();
+  const db = await readDb();
   const student = db.students.find((s) => s.studentId === studentId);
   if (!student) {
     return res.status(401).json({ success: false, message: 'Invalid credentials.' });
@@ -326,8 +285,8 @@ app.post('/api/auth/login', async (req, res) => {
   });
 });
 
-app.get('/api/student/me', auth, (req, res) => {
-  const db = readDb();
+app.get('/api/student/me', auth, async (req, res) => {
+  const db = await readDb();
   const student = db.students.find((s) => s.studentId === req.user.studentId);
   if (!student) return res.status(404).json({ success: false, message: 'Student not found.' });
   return res.json({
@@ -343,17 +302,17 @@ app.get('/api/student/me', auth, (req, res) => {
   });
 });
 
-app.post('/api/student/consent', auth, (req, res) => {
+app.post('/api/student/consent', auth, async (req, res) => {
   const { consent } = req.body || {};
   if (typeof consent !== 'boolean') {
     return res.status(400).json({ success: false, message: 'consent must be boolean.' });
   }
-  const db = readDb();
+  const db = await readDb();
   const student = db.students.find((s) => s.studentId === req.user.studentId);
   if (!student) return res.status(404).json({ success: false, message: 'Student not found.' });
 
   student.consentFlag = consent;
-  writeDb(db);
+  await writeDb(db);
 
   return res.json({
     success: true,
@@ -364,7 +323,7 @@ app.post('/api/student/consent', auth, (req, res) => {
   });
 });
 
-app.get('/api/student/dass21/questions', auth, ensureConsent, (req, res) => {
+app.get('/api/student/dass21/questions', auth, ensureConsent, async (req, res) => {
   return res.json({
     success: true,
     data: {
@@ -379,7 +338,7 @@ app.get('/api/student/dass21/questions', auth, ensureConsent, (req, res) => {
   });
 });
 
-app.post('/api/student/dass21/submit', auth, ensureConsent, (req, res) => {
+app.post('/api/student/dass21/submit', auth, ensureConsent, async (req, res) => {
   const started = Date.now();
   const { responses } = req.body || {};
   if (!Array.isArray(responses) || responses.length !== 21) {
@@ -400,7 +359,7 @@ app.post('/api/student/dass21/submit', auth, ensureConsent, (req, res) => {
     return res.status(400).json({ success: false, message: 'Responses must include all 21 unique items.' });
   }
 
-  const db = readDb();
+  const db = await readDb();
   const cycle = ensureCycle(db, req.user.studentId);
 
   const assessment = {
@@ -466,7 +425,7 @@ app.post('/api/student/dass21/submit', auth, ensureConsent, (req, res) => {
     );
   }
 
-  writeDb(db);
+  await writeDb(db);
 
   const elapsedMs = Date.now() - started;
   return res.json({
@@ -481,13 +440,13 @@ app.post('/api/student/dass21/submit', auth, ensureConsent, (req, res) => {
   });
 });
 
-app.post('/api/student/cssrs/submit', auth, ensureConsent, (req, res) => {
+app.post('/api/student/cssrs/submit', auth, ensureConsent, async (req, res) => {
   const { item1, item2, item3 } = req.body || {};
   if ([item1, item2, item3].some((v) => typeof v !== 'boolean')) {
     return res.status(400).json({ success: false, message: 'item1, item2, item3 must be boolean.' });
   }
 
-  const db = readDb();
+  const db = await readDb();
   const cycle = ensureCycle(db, req.user.studentId);
 
   db.assessments.push({
@@ -512,7 +471,7 @@ app.post('/api/student/cssrs/submit', auth, ensureConsent, (req, res) => {
       false
     );
 
-    writeDb(db);
+    await writeDb(db);
     return res.json({
       success: true,
       data: {
@@ -524,11 +483,11 @@ app.post('/api/student/cssrs/submit', auth, ensureConsent, (req, res) => {
     });
   }
 
-  writeDb(db);
+  await writeDb(db);
   return res.json({ success: true, data: { crisisFlag: false, message: 'No crisis threshold triggered.' } });
 });
 
-app.post('/api/student/esm/submit', auth, ensureConsent, (req, res) => {
+app.post('/api/student/esm/submit', auth, ensureConsent, async (req, res) => {
   const { moodScore, energyScore, stressorCategory, physicalSymptom, helpIntent } = req.body || {};
   if (
     Number.isNaN(Number(moodScore)) || Number(moodScore) < 1 || Number(moodScore) > 10 ||
@@ -538,7 +497,7 @@ app.post('/api/student/esm/submit', auth, ensureConsent, (req, res) => {
     return res.status(400).json({ success: false, message: 'Invalid ESM payload.' });
   }
 
-  const db = readDb();
+  const db = await readDb();
   db.esmEntries.push({
     entryId: db.counters.esmEntryId++,
     studentId: req.user.studentId,
@@ -574,12 +533,12 @@ app.post('/api/student/esm/submit', auth, ensureConsent, (req, res) => {
     generatedNotification = true;
   }
 
-  writeDb(db);
+  await writeDb(db);
   return res.json({ success: true, data: { trajectory, generatedNotification } });
 });
 
-app.get('/api/student/dashboard', auth, (req, res) => {
-  const db = readDb();
+app.get('/api/student/dashboard', auth, async (req, res) => {
+  const db = await readDb();
   const student = db.students.find((s) => s.studentId === req.user.studentId);
   if (!student) return res.status(404).json({ success: false, message: 'Student not found.' });
 
