@@ -1,0 +1,16 @@
+# Dependencies
+**/node_modules/
+
+# Vite build cache
+**/.vite/
+
+# Backend runtime data
+backend/data/spartan-g.sqlite
+backend/data/spartan-g.sqlite-shm
+backend/data/spartan-g.sqlite-wal
+backend/data/*.sqlite-journal
+
+# Environment files
+backend/.env
+backend/.env.*
+!backend/.env.example
