@@ -108,6 +108,7 @@ CREATE TABLE IF NOT EXISTS facilitators (
   name VARCHAR(255) NOT NULL,
   assigned_college VARCHAR(255) NOT NULL,
   email VARCHAR(255) NOT NULL,
+  password_hash VARCHAR(255) DEFAULT NULL,
   PRIMARY KEY (facilitator_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 

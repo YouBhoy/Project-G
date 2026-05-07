@@ -53,7 +53,30 @@ function auth(req, res, next) {
   }
 }
 
+function requireRole(expectedRole) {
+  return (req, res, next) => {
+    if (!req.user || req.user.role !== expectedRole) {
+      return res.status(403).json({ success: false, message: 'Forbidden for this role.' });
+    }
+    return next();
+  };
+}
+
+function pseudonymizeStudentId(studentId) {
+  const seed = `${studentId || ''}`;
+  let hash = 0;
+  for (let i = 0; i < seed.length; i += 1) {
+    hash = ((hash << 5) - hash) + seed.charCodeAt(i);
+    hash |= 0;
+  }
+  const token = Math.abs(hash).toString(36).toUpperCase().slice(0, 6).padStart(6, '0');
+  return `STU-${token}`;
+}
+
 async function ensureConsent(req, res, next) {
+  if (!req.user || req.user.role !== 'student') {
+    return res.status(403).json({ success: false, message: 'Student access only.' });
+  }
   const db = await readDb();
   const student = db.students.find((s) => s.studentId === req.user.studentId);
   if (!student) {
@@ -223,69 +246,148 @@ app.get('/api/health', (req, res) => {
 });
 
 app.post('/api/auth/signup', async (req, res) => {
-  const { studentId, name, email, password, college, yearLevel, sex } = req.body || {};
-  if (!studentId || !name || !password || !college || !yearLevel || !sex) {
-    return res.status(400).json({ success: false, message: 'Missing required signup fields.' });
-  }
-
-  const db = await readDb();
-  const exists = db.students.find((s) => s.studentId === studentId || (email && s.email === email));
-  if (exists) {
-    return res.status(409).json({ success: false, message: 'Student already exists.' });
-  }
-
-  const passwordHash = await bcrypt.hash(password, 10);
-  db.students.push({
+  const {
+    role = 'student',
     studentId,
     name,
-    email: email || null,
-    passwordHash,
+    email,
+    password,
     college,
-    yearLevel: Number(yearLevel),
+    yearLevel,
     sex,
-    consentFlag: false,
-    registeredAt: nowIso()
-  });
+    assignedCollege
+  } = req.body || {};
 
-  await writeDb(db);
-  return res.status(201).json({ success: true, message: 'Signup successful.' });
+  const normalizedRole = `${role}`.toLowerCase();
+  const db = await readDb();
+
+  if (normalizedRole === 'student') {
+    if (!studentId || !name || !password || !college || !yearLevel || !sex) {
+      return res.status(400).json({ success: false, message: 'Missing required student signup fields.' });
+    }
+
+    const exists = db.students.find((s) => s.studentId === studentId || (email && s.email === email));
+    if (exists) {
+      return res.status(409).json({ success: false, message: 'Student already exists.' });
+    }
+
+    const passwordHash = await bcrypt.hash(password, 10);
+    db.students.push({
+      studentId,
+      name,
+      email: email || null,
+      passwordHash,
+      college,
+      yearLevel: Number(yearLevel),
+      sex,
+      consentFlag: false,
+      registeredAt: nowIso()
+    });
+
+    await writeDb(db);
+    return res.status(201).json({ success: true, message: 'Student signup successful.' });
+  }
+
+  if (normalizedRole === 'ogc') {
+    if (!name || !email || !password || !assignedCollege) {
+      return res.status(400).json({ success: false, message: 'Missing required OGC signup fields.' });
+    }
+
+    const facilitatorExists = db.facilitators.find((f) => `${f.email}`.toLowerCase() === `${email}`.toLowerCase());
+    if (facilitatorExists) {
+      return res.status(409).json({ success: false, message: 'OGC account already exists.' });
+    }
+
+    const passwordHash = await bcrypt.hash(password, 10);
+    const nextFacilitatorId = db.facilitators.reduce((maxId, f) => Math.max(maxId, Number(f.facilitatorId) || 0), 0) + 1;
+    db.facilitators.push({
+      facilitatorId: nextFacilitatorId,
+      name,
+      assignedCollege,
+      email,
+      passwordHash
+    });
+
+    await writeDb(db);
+    return res.status(201).json({ success: true, message: 'OGC signup successful.' });
+  }
+
+  return res.status(400).json({ success: false, message: 'Unsupported role value.' });
 });
 
 app.post('/api/auth/login', async (req, res) => {
-  const { studentId, password } = req.body || {};
-  if (!studentId || !password) {
-    return res.status(400).json({ success: false, message: 'studentId and password are required.' });
-  }
-
+  const { role = 'student', studentId, email, password } = req.body || {};
+  const normalizedRole = `${role}`.toLowerCase();
   const db = await readDb();
-  const student = db.students.find((s) => s.studentId === studentId);
-  if (!student) {
-    return res.status(401).json({ success: false, message: 'Invalid credentials.' });
-  }
 
-  const ok = await bcrypt.compare(password, student.passwordHash);
-  if (!ok) {
-    return res.status(401).json({ success: false, message: 'Invalid credentials.' });
-  }
-
-  const token = jwt.sign({ studentId: student.studentId, role: 'Student' }, JWT_SECRET, { expiresIn: '12h' });
-  return res.json({
-    success: true,
-    data: {
-      token,
-      student: {
-        studentId: student.studentId,
-        name: student.name,
-        college: student.college,
-        yearLevel: student.yearLevel,
-        sex: student.sex,
-        consentFlag: student.consentFlag
-      }
+  if (normalizedRole === 'student') {
+    if (!studentId || !password) {
+      return res.status(400).json({ success: false, message: 'studentId and password are required for student login.' });
     }
-  });
+
+    const student = db.students.find((s) => s.studentId === studentId);
+    if (!student) {
+      return res.status(401).json({ success: false, message: 'Invalid credentials.' });
+    }
+
+    const ok = await bcrypt.compare(password, student.passwordHash);
+    if (!ok) {
+      return res.status(401).json({ success: false, message: 'Invalid credentials.' });
+    }
+
+    const token = jwt.sign({ studentId: student.studentId, role: 'student' }, JWT_SECRET, { expiresIn: '12h' });
+    return res.json({
+      success: true,
+      data: {
+        token,
+        role: 'student',
+        student: {
+          studentId: student.studentId,
+          name: student.name,
+          college: student.college,
+          yearLevel: student.yearLevel,
+          sex: student.sex,
+          consentFlag: student.consentFlag
+        }
+      }
+    });
+  }
+
+  if (normalizedRole === 'ogc') {
+    if (!email || !password) {
+      return res.status(400).json({ success: false, message: 'email and password are required for OGC login.' });
+    }
+
+    const facilitator = db.facilitators.find((f) => `${f.email}`.toLowerCase() === `${email}`.toLowerCase());
+    if (!facilitator || !facilitator.passwordHash) {
+      return res.status(401).json({ success: false, message: 'Invalid OGC credentials.' });
+    }
+
+    const ok = await bcrypt.compare(password, facilitator.passwordHash);
+    if (!ok) {
+      return res.status(401).json({ success: false, message: 'Invalid OGC credentials.' });
+    }
+
+    const token = jwt.sign({ facilitatorId: facilitator.facilitatorId, role: 'ogc' }, JWT_SECRET, { expiresIn: '12h' });
+    return res.json({
+      success: true,
+      data: {
+        token,
+        role: 'ogc',
+        facilitator: {
+          facilitatorId: facilitator.facilitatorId,
+          name: facilitator.name,
+          assignedCollege: facilitator.assignedCollege,
+          email: facilitator.email
+        }
+      }
+    });
+  }
+
+  return res.status(400).json({ success: false, message: 'Unsupported role value.' });
 });
 
-app.get('/api/student/me', auth, async (req, res) => {
+app.get('/api/student/me', auth, requireRole('student'), async (req, res) => {
   const db = await readDb();
   const student = db.students.find((s) => s.studentId === req.user.studentId);
   if (!student) return res.status(404).json({ success: false, message: 'Student not found.' });
@@ -302,7 +404,7 @@ app.get('/api/student/me', auth, async (req, res) => {
   });
 });
 
-app.post('/api/student/consent', auth, async (req, res) => {
+app.post('/api/student/consent', auth, requireRole('student'), async (req, res) => {
   const { consent } = req.body || {};
   if (typeof consent !== 'boolean') {
     return res.status(400).json({ success: false, message: 'consent must be boolean.' });
@@ -537,7 +639,7 @@ app.post('/api/student/esm/submit', auth, ensureConsent, async (req, res) => {
   return res.json({ success: true, data: { trajectory, generatedNotification } });
 });
 
-app.get('/api/student/dashboard', auth, async (req, res) => {
+app.get('/api/student/dashboard', auth, requireRole('student'), async (req, res) => {
   const db = await readDb();
   const student = db.students.find((s) => s.studentId === req.user.studentId);
   if (!student) return res.status(404).json({ success: false, message: 'Student not found.' });
@@ -576,6 +678,176 @@ app.get('/api/student/dashboard', auth, async (req, res) => {
       riskLevel,
       nextAction: triggerActions[riskLevel],
       moodSeries
+    }
+  });
+});
+
+app.get('/api/ogc/me', auth, requireRole('ogc'), async (req, res) => {
+  const db = await readDb();
+  const facilitator = db.facilitators.find((f) => Number(f.facilitatorId) === Number(req.user.facilitatorId));
+  if (!facilitator) {
+    return res.status(404).json({ success: false, message: 'Facilitator not found.' });
+  }
+
+  return res.json({
+    success: true,
+    data: {
+      facilitatorId: facilitator.facilitatorId,
+      name: facilitator.name,
+      assignedCollege: facilitator.assignedCollege,
+      email: facilitator.email
+    }
+  });
+});
+
+app.get('/api/ogc/dashboard', auth, requireRole('ogc'), async (req, res) => {
+  const db = await readDb();
+  const facilitator = db.facilitators.find((f) => Number(f.facilitatorId) === Number(req.user.facilitatorId));
+  if (!facilitator) {
+    return res.status(404).json({ success: false, message: 'Facilitator not found.' });
+  }
+
+  const studentsInScope = db.students.filter((s) => {
+    if (!facilitator.assignedCollege || facilitator.assignedCollege === 'All') return true;
+    return s.college === facilitator.assignedCollege;
+  });
+
+  const latestClassifications = new Map();
+  for (const student of studentsInScope) {
+    const latest = [...db.riskClassifications]
+      .filter((c) => c.studentId === student.studentId)
+      .sort((a, b) => a.generatedAt.localeCompare(b.generatedAt))
+      .pop() || null;
+    latestClassifications.set(student.studentId, latest);
+  }
+
+  const students = studentsInScope.map((student) => {
+    const latest = latestClassifications.get(student.studentId);
+    const moodEntries = db.esmEntries
+      .filter((e) => e.studentId === student.studentId)
+      .sort((a, b) => b.promptTime.localeCompare(a.promptTime));
+    const latestEsm = moodEntries[0] || null;
+    const avgMood = moodEntries.length
+      ? Number((moodEntries.reduce((sum, e) => sum + e.moodScore, 0) / moodEntries.length).toFixed(2))
+      : null;
+    const avgEnergy = moodEntries.length
+      ? Number((moodEntries.reduce((sum, e) => sum + e.energyScore, 0) / moodEntries.length).toFixed(2))
+      : null;
+
+    const contact = latest?.riskLevel === 'Crisis'
+      ? {
+          canContact: true,
+          studentId: student.studentId,
+          name: student.name,
+          email: student.email
+        }
+      : {
+          canContact: false
+        };
+
+    return {
+      pseudoId: pseudonymizeStudentId(student.studentId),
+      college: student.college,
+      yearLevel: student.yearLevel,
+      consentFlag: student.consentFlag,
+      latestRiskLevel: latest?.riskLevel || 'Low',
+      latestTrajectory: latest?.trajectory || 'Stable',
+      latestClassificationAt: latest?.generatedAt || null,
+      averageMood: avgMood,
+      averageEnergy: avgEnergy,
+      latestEsmAt: latestEsm?.promptTime || null,
+      source: latest?.meta?.source || null,
+      contact
+    };
+  });
+
+  const riskCounts = students.reduce((acc, student) => {
+    const key = student.latestRiskLevel || 'Low';
+    acc[key] = (acc[key] || 0) + 1;
+    return acc;
+  }, { Low: 0, Moderate: 0, High: 0, Crisis: 0 });
+
+  const criticalAlerts = students
+    .filter((s) => s.latestRiskLevel === 'Crisis')
+    .map((s) => ({
+      pseudoId: s.pseudoId,
+      latestClassificationAt: s.latestClassificationAt,
+      contact: s.contact
+    }))
+    .sort((a, b) => `${b.latestClassificationAt || ''}`.localeCompare(`${a.latestClassificationAt || ''}`));
+
+  return res.json({
+    success: true,
+    data: {
+      facilitator: {
+        facilitatorId: facilitator.facilitatorId,
+        name: facilitator.name,
+        assignedCollege: facilitator.assignedCollege,
+        email: facilitator.email
+      },
+      summary: {
+        totalStudents: students.length,
+        riskCounts,
+        criticalCount: criticalAlerts.length
+      },
+      criticalAlerts,
+      students
+    }
+  });
+});
+
+app.post('/api/ogc/contact', auth, requireRole('ogc'), async (req, res) => {
+  const { studentId, channel = 'Email', note = '' } = req.body || {};
+  if (!studentId) {
+    return res.status(400).json({ success: false, message: 'studentId is required.' });
+  }
+
+  const db = await readDb();
+  const facilitator = db.facilitators.find((f) => Number(f.facilitatorId) === Number(req.user.facilitatorId));
+  if (!facilitator) {
+    return res.status(404).json({ success: false, message: 'Facilitator not found.' });
+  }
+
+  const student = db.students.find((s) => s.studentId === studentId);
+  if (!student) {
+    return res.status(404).json({ success: false, message: 'Student not found.' });
+  }
+
+  const latestClassification = [...db.riskClassifications]
+    .filter((c) => c.studentId === student.studentId)
+    .sort((a, b) => a.generatedAt.localeCompare(b.generatedAt))
+    .pop();
+
+  if (!latestClassification || latestClassification.riskLevel !== 'Crisis') {
+    return res.status(400).json({ success: false, message: 'Contact action is only enabled for Crisis risk level.' });
+  }
+
+  db.referralActions.push({
+    actionId: db.counters.actionId++,
+    classificationId: latestClassification.classificationId,
+    actionType: `OGC outreach initiated via ${channel}`,
+    dispatchedAt: nowIso(),
+    acknowledgedAt: null
+  });
+
+  createNotification(
+    db,
+    latestClassification.classificationId,
+    `OGC outreach started for ${student.name} (${student.studentId}) via ${channel}. ${note}`.trim(),
+    false
+  );
+
+  await writeDb(db);
+
+  return res.json({
+    success: true,
+    data: {
+      message: 'Contact workflow logged successfully.',
+      student: {
+        studentId: student.studentId,
+        name: student.name,
+        email: student.email
+      }
     }
   });
 });

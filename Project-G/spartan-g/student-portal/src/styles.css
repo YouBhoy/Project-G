@@ -615,6 +615,57 @@ button:disabled {
   margin: 0;
 }
 
+.hint {
+  margin-top: 8px;
+  color: var(--color-gray-500);
+  font-size: 13px;
+}
+
+.ogc-list {
+  display: grid;
+  gap: 10px;
+}
+
+.ogc-item {
+  border: 1px solid var(--color-gray-200);
+  border-radius: 8px;
+  padding: 10px 12px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  background: var(--color-off-white);
+}
+
+.ogc-item p {
+  margin: 0;
+  font-size: 14px;
+}
+
+.ogc-table-wrap {
+  overflow-x: auto;
+}
+
+.ogc-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 14px;
+}
+
+.ogc-table th,
+.ogc-table td {
+  text-align: left;
+  padding: 10px 8px;
+  border-bottom: 1px solid var(--color-gray-200);
+  white-space: nowrap;
+}
+
+.ogc-table th {
+  color: var(--color-gray-700);
+  font-family: var(--font-heading);
+  font-size: 13px;
+}
+
 :focus-visible {
   outline: 3px solid var(--color-gold);
   outline-offset: 2px;

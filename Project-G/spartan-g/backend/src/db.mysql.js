@@ -7,7 +7,8 @@ const DEFAULT_FACILITATOR = {
   facilitatorId: 1,
   name: 'Default OGC',
   assignedCollege: 'All',
-  email: 'ogc@campus.local'
+  email: 'ogc@campus.local',
+  passwordHash: null
 };
 
 function defaultDb() {
@@ -33,7 +34,8 @@ function defaultDb() {
         facilitatorId: DEFAULT_FACILITATOR.facilitatorId,
         name: DEFAULT_FACILITATOR.name,
         assignedCollege: DEFAULT_FACILITATOR.assignedCollege,
-        email: DEFAULT_FACILITATOR.email
+        email: DEFAULT_FACILITATOR.email,
+        passwordHash: DEFAULT_FACILITATOR.passwordHash
       }
     ],
     notifications: []
@@ -180,7 +182,8 @@ function mapFacilitator(row) {
     facilitatorId: row.facilitator_id,
     name: row.name,
     assignedCollege: row.assigned_college,
-    email: row.email
+    email: row.email,
+    passwordHash: row.password_hash
   };
 }
 
@@ -214,7 +217,8 @@ export async function readDb() {
         facilitatorId: DEFAULT_FACILITATOR.facilitatorId,
         name: DEFAULT_FACILITATOR.name,
         assignedCollege: DEFAULT_FACILITATOR.assignedCollege,
-        email: DEFAULT_FACILITATOR.email
+        email: DEFAULT_FACILITATOR.email,
+        passwordHash: DEFAULT_FACILITATOR.passwordHash
       }
     ];
   }
@@ -301,8 +305,8 @@ export async function writeDb(snapshot) {
 
     for (const facilitator of snapshot.facilitators || [DEFAULT_FACILITATOR]) {
       await connection.query(
-        'INSERT INTO facilitators (facilitator_id, name, assigned_college, email) VALUES (?, ?, ?, ?)',
-        [facilitator.facilitatorId, facilitator.name, facilitator.assignedCollege, facilitator.email]
+        'INSERT INTO facilitators (facilitator_id, name, assigned_college, email, password_hash) VALUES (?, ?, ?, ?, ?)',
+        [facilitator.facilitatorId, facilitator.name, facilitator.assignedCollege, facilitator.email, facilitator.passwordHash || null]
       );
     }
 

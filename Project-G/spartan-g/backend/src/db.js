@@ -93,7 +93,8 @@ db.exec(`
     facilitator_id INTEGER PRIMARY KEY AUTOINCREMENT,
     name TEXT NOT NULL,
     assigned_college TEXT NOT NULL,
-    email TEXT NOT NULL
+    email TEXT NOT NULL,
+    password_hash TEXT
   );
 
   CREATE TABLE IF NOT EXISTS notifications (
@@ -108,11 +109,18 @@ db.exec(`
   );
 `);
 
+const facilitatorColumns = db.prepare('PRAGMA table_info(facilitators)').all();
+const hasFacilitatorPasswordHash = facilitatorColumns.some((column) => column.name === 'password_hash');
+if (!hasFacilitatorPasswordHash) {
+  db.exec('ALTER TABLE facilitators ADD COLUMN password_hash TEXT');
+}
+
 const DEFAULT_FACILITATOR = {
   facilitator_id: 1,
   name: 'Default OGC',
   assigned_college: 'All',
-  email: 'ogc@campus.local'
+  email: 'ogc@campus.local',
+  password_hash: null
 };
 
 function defaultDb() {
@@ -138,7 +146,8 @@ function defaultDb() {
         facilitatorId: DEFAULT_FACILITATOR.facilitator_id,
         name: DEFAULT_FACILITATOR.name,
         assignedCollege: DEFAULT_FACILITATOR.assigned_college,
-        email: DEFAULT_FACILITATOR.email
+        email: DEFAULT_FACILITATOR.email,
+        passwordHash: DEFAULT_FACILITATOR.password_hash
       }
     ],
     notifications: []
@@ -180,12 +189,13 @@ function seedFromLegacyIfNeeded() {
 
   const legacy = readLegacyDb();
   if (!legacy) {
-    db.prepare('INSERT OR IGNORE INTO facilitators (facilitator_id, name, assigned_college, email) VALUES (?, ?, ?, ?)')
+    db.prepare('INSERT OR IGNORE INTO facilitators (facilitator_id, name, assigned_college, email, password_hash) VALUES (?, ?, ?, ?, ?)')
       .run(
         DEFAULT_FACILITATOR.facilitator_id,
         DEFAULT_FACILITATOR.name,
         DEFAULT_FACILITATOR.assigned_college,
-        DEFAULT_FACILITATOR.email
+        DEFAULT_FACILITATOR.email,
+        DEFAULT_FACILITATOR.password_hash
       );
     updateSequence('facilitators', 'facilitator_id');
     return;
@@ -220,8 +230,8 @@ function seedFromLegacyIfNeeded() {
     VALUES (@action_id, @classification_id, @action_type, @dispatched_at, @acknowledged_at)
   `);
   const insertFacilitator = db.prepare(`
-    INSERT INTO facilitators (facilitator_id, name, assigned_college, email)
-    VALUES (@facilitator_id, @name, @assigned_college, @email)
+    INSERT INTO facilitators (facilitator_id, name, assigned_college, email, password_hash)
+    VALUES (@facilitator_id, @name, @assigned_college, @email, @password_hash)
   `);
   const insertNotification = db.prepare(`
     INSERT INTO notifications (notif_id, facilitator_id, classification_id, anonymized_flag, sent_at, message)
@@ -315,7 +325,8 @@ function seedFromLegacyIfNeeded() {
             facilitatorId: DEFAULT_FACILITATOR.facilitator_id,
             name: DEFAULT_FACILITATOR.name,
             assignedCollege: DEFAULT_FACILITATOR.assigned_college,
-            email: DEFAULT_FACILITATOR.email
+            email: DEFAULT_FACILITATOR.email,
+            passwordHash: DEFAULT_FACILITATOR.password_hash
           }
         ];
 
@@ -324,7 +335,8 @@ function seedFromLegacyIfNeeded() {
         facilitator_id: facilitator.facilitatorId,
         name: facilitator.name,
         assigned_college: facilitator.assignedCollege,
-        email: facilitator.email
+        email: facilitator.email,
+        password_hash: facilitator.passwordHash || null
       });
     }
 
@@ -422,7 +434,8 @@ export function readDb() {
     facilitatorId: row.facilitator_id,
     name: row.name,
     assignedCollege: row.assigned_college,
-    email: row.email
+    email: row.email,
+    passwordHash: row.password_hash
   }));
 
   snapshot.notifications = db.prepare('SELECT * FROM notifications ORDER BY notif_id').all().map((row) => ({
@@ -505,8 +518,8 @@ export function writeDb(snapshot) {
         VALUES (@action_id, @classification_id, @action_type, @dispatched_at, @acknowledged_at)
       `);
       const insertFacilitator = db.prepare(`
-        INSERT INTO facilitators (facilitator_id, name, assigned_college, email)
-        VALUES (@facilitator_id, @name, @assigned_college, @email)
+        INSERT INTO facilitators (facilitator_id, name, assigned_college, email, password_hash)
+        VALUES (@facilitator_id, @name, @assigned_college, @email, @password_hash)
       `);
       const insertNotification = db.prepare(`
         INSERT INTO notifications (notif_id, facilitator_id, classification_id, anonymized_flag, sent_at, message)
@@ -597,7 +610,8 @@ export function writeDb(snapshot) {
           facilitator_id: facilitator.facilitatorId,
           name: facilitator.name,
           assigned_college: facilitator.assignedCollege,
-          email: facilitator.email
+          email: facilitator.email,
+          password_hash: facilitator.passwordHash || null
         });
       }
 
