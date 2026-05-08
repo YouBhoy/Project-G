@@ -3,7 +3,8 @@ import { api } from './api.js';
 
 const studentPages = [
   { key: 'dass21', label: 'DASS-21' },
-  { key: 'cssrs-lite', label: 'C-SSRS Lite' },
+  { key: 'phq9', label: 'PHQ-9' },
+  { key: 'gad7', label: 'GAD-7' },
   { key: 'esm-checkin', label: 'ESM Check-in' },
   { key: 'dashboard', label: 'Dashboard' }
 ];
@@ -49,7 +50,6 @@ export default function App() {
   const [questions, setQuestions] = useState([]);
   const [dassAnswers, setDassAnswers] = useState({});
   const [lastDassResult, setLastDassResult] = useState(null);
-  const [lastCssrsResult, setLastCssrsResult] = useState(null);
   const [lastEsmResult, setLastEsmResult] = useState(null);
   const [dashboard, setDashboard] = useState(null);
   const [ogcDashboard, setOgcDashboard] = useState(null);
@@ -72,7 +72,10 @@ export default function App() {
 
   const [loginForm, setLoginForm] = useState({ role: 'student', studentId: '', email: '', password: '' });
 
-  const [cssrs, setCssrs] = useState({ item1: false, item2: false, item3: false });
+  const [phq9, setPhq9] = useState({});
+  const [gad7, setGad7] = useState({});
+  const [lastPhq9Result, setLastPhq9Result] = useState(null);
+  const [lastGad7Result, setLastGad7Result] = useState(null);
   const [esm, setEsm] = useState({
     moodScore: 5,
     energyScore: 5,
@@ -102,6 +105,53 @@ export default function App() {
         setError(err.message);
       }
     })();
+  }, [token, sessionRole]);
+
+  useEffect(() => {
+    if (!token || sessionRole !== 'ogc') return undefined;
+
+    let cancelled = false;
+
+    const loadOgcDashboard = async () => {
+      try {
+        const data = await api.ogcDashboard(token);
+        if (!cancelled) {
+          setOgcDashboard(data);
+        }
+      } catch (err) {
+        if (!cancelled) {
+          setError(err.message);
+        }
+      }
+    };
+
+    loadOgcDashboard();
+    const intervalId = window.setInterval(loadOgcDashboard, 10000);
+    const handleFocus = () => {
+      loadOgcDashboard();
+    };
+    const handleVisibilityChange = () => {
+      if (!document.hidden) {
+        loadOgcDashboard();
+      }
+    };
+    const handleStorage = (event) => {
+      if (event.key === 'spartan-g:last-signup-at') {
+        loadOgcDashboard();
+      }
+    };
+
+    window.addEventListener('focus', handleFocus);
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    window.addEventListener('storage', handleStorage);
+
+    return () => {
+      cancelled = true;
+      window.clearInterval(intervalId);
+      window.removeEventListener('focus', handleFocus);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      window.removeEventListener('storage', handleStorage);
+    };
   }, [token, sessionRole]);
 
   useEffect(() => {
@@ -185,6 +235,7 @@ export default function App() {
           };
 
       await api.signup(payload);
+      localStorage.setItem('spartan-g:last-signup-at', new Date().toISOString());
       setMode('login');
       setInfo('Account created. You can now log in.');
       setLoginForm((prev) => ({
@@ -231,10 +282,26 @@ export default function App() {
     });
   }
 
-  function submitCssrs() {
+  function submitPhq9() {
     run(async () => {
-      const result = await api.submitCssrs(cssrs, token);
-      setLastCssrsResult(result);
+      const scores = Object.entries(phq9).map(([k, v]) => ({
+        itemNumber: parseInt(k.replace('item', ''), 10),
+        score: Number(v)
+      }));
+      const result = await api.submitPhq9({ scores }, token);
+      setLastPhq9Result(result);
+      goToPage('dashboard');
+    });
+  }
+
+  function submitGad7() {
+    run(async () => {
+      const scores = Object.entries(gad7).map(([k, v]) => ({
+        itemNumber: parseInt(k.replace('item', ''), 10),
+        score: Number(v)
+      }));
+      const result = await api.submitGad7({ scores }, token);
+      setLastGad7Result(result);
       goToPage('dashboard');
     });
   }
@@ -423,7 +490,7 @@ export default function App() {
           </section>
         </main>
 
-        <footer className="inst-footer">© {new Date().getFullYear()} Batangas State University — SPARTAN-G Prototype</footer>
+        <footer className="inst-footer">ï¿½ {new Date().getFullYear()} Batangas State University ï¿½ SPARTAN-G Prototype</footer>
       </>
     );
   }
@@ -448,6 +515,7 @@ export default function App() {
             <div>
               <h1>OGC Facilitator Dashboard</h1>
               <p>{facilitator?.name} ({facilitator?.email})</p>
+              <p>Scope: {facilitator?.assignedCollege || 'All'}</p>
             </div>
           </header>
 
@@ -470,7 +538,7 @@ export default function App() {
                     <div className="ogc-list">
                       {ogcDashboard.criticalAlerts.map((alert) => (
                         <div key={`${alert.pseudoId}-${alert.latestClassificationAt}`} className="ogc-item">
-                          <p><strong>{alert.pseudoId}</strong> • Crisis classification at {new Date(alert.latestClassificationAt).toLocaleString()}</p>
+                          <p><strong>{alert.pseudoId}</strong> ï¿½ Crisis classification at {new Date(alert.latestClassificationAt).toLocaleString()}</p>
                           {alert.contact?.canContact ? (
                             <button type="button" onClick={() => contactCriticalStudent(alert.contact.studentId)}>Contact Student</button>
                           ) : null}
@@ -523,7 +591,7 @@ export default function App() {
           </section>
         </main>
 
-        <footer className="inst-footer">© {new Date().getFullYear()} Batangas State University — OGC Facilitator Prototype</footer>
+        <footer className="inst-footer">ï¿½ {new Date().getFullYear()} Batangas State University ï¿½ OGC Facilitator Prototype</footer>
       </>
     );
   }
@@ -573,7 +641,7 @@ export default function App() {
             <section className="modal-card">
               <div className="modal-header"><h2>Digital Informed Consent (Required)</h2></div>
               <div className="modal-body">
-                <p>Before using DASS-21, C-SSRS Lite, or ESM Check-in, you must acknowledge digital informed consent.</p>
+                <p>Before using DASS-21, PHQ-9, GAD-7, or ESM Check-in, you must acknowledge digital informed consent.</p>
                 <p>You may withdraw anytime. If withdrawn, assessment access will be blocked until you consent again.</p>
                 <p>Status: <strong>{student?.consentFlag ? 'Consented' : 'Not Consented'}</strong></p>
                 <div className="row">
@@ -606,23 +674,67 @@ export default function App() {
           </section>
         ) : null}
 
-        {activePage === 'cssrs-lite' ? (
+        {activePage === 'phq9' ? (
           <section className="card">
-            <h2>C-SSRS Lite</h2>
-            {!canTakeAssessments ? <p className="error">Consent required before C-SSRS Lite.</p> : null}
+            <h2>PHQ-9 (Patient Health Questionnaire)</h2>
+            {!canTakeAssessments ? <p className="error">Consent required before PHQ-9.</p> : null}
+            <p>Over the last 2 weeks, how often have you been bothered by each of the following problems?</p>
             <div className="form-grid">
-              {[1, 2, 3].map((n) => (
-                <label key={n}>
-                  Item {n} (Yes/No)
-                  <select value={cssrs[`item${n}`] ? 'yes' : 'no'} onChange={(e) => setCssrs((prev) => ({ ...prev, [`item${n}`]: e.target.value === 'yes' }))} disabled={!canTakeAssessments}>
-                    <option value="no">No</option>
-                    <option value="yes">Yes</option>
+              {[
+                { num: 1, text: 'Little interest or pleasure in doing things' },
+                { num: 2, text: 'Feeling down, depressed, or hopeless' },
+                { num: 3, text: 'Trouble falling or staying asleep, or sleeping too much' },
+                { num: 4, text: 'Feeling tired or having little energy' },
+                { num: 5, text: 'Poor appetite or overeating' },
+                { num: 6, text: 'Feeling bad about yourself or that you are a failure' },
+                { num: 7, text: 'Trouble concentrating on things' },
+                { num: 8, text: 'Moving or speaking slowly, or being fidgety or restless' },
+                { num: 9, text: 'Thoughts that you would be better off dead' }
+              ].map((q) => (
+                <label key={q.num}>
+                  <strong>Item {q.num}:</strong> {q.text}
+                  <select value={phq9[`item${q.num}`] ?? 0} onChange={(e) => setPhq9((prev) => ({ ...prev, [`item${q.num}`]: Number(e.target.value) }))} disabled={!canTakeAssessments}>
+                    <option value="0">Not at all (0)</option>
+                    <option value="1">Several days (1)</option>
+                    <option value="2">More than half the days (2)</option>
+                    <option value="3">Nearly every day (3)</option>
                   </select>
                 </label>
               ))}
             </div>
-            <button type="button" onClick={submitCssrs} disabled={!canTakeAssessments || loading}>{loading ? 'Submitting...' : 'Submit C-SSRS Lite'}</button>
-            {lastCssrsResult ? <p>Crisis Flag: <strong>{yesNo(lastCssrsResult.crisisFlag)}</strong></p> : null}
+            <button type="button" onClick={submitPhq9} disabled={!canTakeAssessments || loading || Object.keys(phq9).length !== 9}>{loading ? 'Submitting...' : 'Submit PHQ-9'}</button>
+            {lastPhq9Result ? <p>Depression Risk: <span className={riskClassName(lastPhq9Result.riskLevel)}>{lastPhq9Result.riskLevel}</span></p> : null}
+          </section>
+        ) : null}
+
+        {activePage === 'gad7' ? (
+          <section className="card">
+            <h2>GAD-7 (Generalized Anxiety Disorder)</h2>
+            {!canTakeAssessments ? <p className="error">Consent required before GAD-7.</p> : null}
+            <p>Over the last 2 weeks, how often have you been bothered by each of the following problems?</p>
+            <div className="form-grid">
+              {[
+                { num: 1, text: 'Feeling nervous, anxious or on edge' },
+                { num: 2, text: 'Not being able to stop or control worrying' },
+                { num: 3, text: 'Worrying too much about different things' },
+                { num: 4, text: 'Trouble relaxing' },
+                { num: 5, text: 'Being so restless that it is hard to sit still' },
+                { num: 6, text: 'Becoming easily annoyed or irritable' },
+                { num: 7, text: 'Feeling afraid as if something awful might happen' }
+              ].map((q) => (
+                <label key={q.num}>
+                  <strong>Item {q.num}:</strong> {q.text}
+                  <select value={gad7[`item${q.num}`] ?? 0} onChange={(e) => setGad7((prev) => ({ ...prev, [`item${q.num}`]: Number(e.target.value) }))} disabled={!canTakeAssessments}>
+                    <option value="0">Not at all (0)</option>
+                    <option value="1">Several days (1)</option>
+                    <option value="2">More than half the days (2)</option>
+                    <option value="3">Nearly every day (3)</option>
+                  </select>
+                </label>
+              ))}
+            </div>
+            <button type="button" onClick={submitGad7} disabled={!canTakeAssessments || loading || Object.keys(gad7).length !== 7}>{loading ? 'Submitting...' : 'Submit GAD-7'}</button>
+            {lastGad7Result ? <p>Anxiety Risk: <span className={riskClassName(lastGad7Result.riskLevel)}>{lastGad7Result.riskLevel}</span></p> : null}
           </section>
         ) : null}
 
@@ -676,7 +788,7 @@ export default function App() {
         {info ? <p>{info}</p> : null}
       </main>
 
-      <footer className="inst-footer">© {new Date().getFullYear()} Batangas State University — SPARTAN-G Student Wellbeing Portal</footer>
+      <footer className="inst-footer">ï¿½ {new Date().getFullYear()} Batangas State University ï¿½ SPARTAN-G Student Wellbeing Portal</footer>
     </>
   );
 }

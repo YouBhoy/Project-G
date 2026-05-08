@@ -28,7 +28,7 @@ CREATE TABLE IF NOT EXISTS assessment_cycles (
 CREATE TABLE IF NOT EXISTS assessments (
   assessment_id INT NOT NULL AUTO_INCREMENT,
   student_id VARCHAR(128) NOT NULL,
-  type ENUM('DASS21', 'CSSRS', 'ESM') NOT NULL,
+  type ENUM('DASS21', 'PHQ9', 'GAD7', 'ESM') NOT NULL,
   submitted_at VARCHAR(40) NOT NULL,
   cycle_id INT NOT NULL,
   PRIMARY KEY (assessment_id),

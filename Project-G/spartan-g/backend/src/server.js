@@ -542,10 +542,26 @@ app.post('/api/student/dass21/submit', auth, ensureConsent, async (req, res) => 
   });
 });
 
-app.post('/api/student/cssrs/submit', auth, ensureConsent, async (req, res) => {
-  const { item1, item2, item3 } = req.body || {};
-  if ([item1, item2, item3].some((v) => typeof v !== 'boolean')) {
-    return res.status(400).json({ success: false, message: 'item1, item2, item3 must be boolean.' });
+app.post('/api/student/phq9/submit', auth, ensureConsent, async (req, res) => {
+  const { scores } = req.body || {};
+  if (!Array.isArray(scores) || scores.length !== 9) {
+    return res.status(400).json({ success: false, message: 'Exactly 9 PHQ-9 scores are required.' });
+  }
+
+  const scoresByItem = new Map();
+  let totalScore = 0;
+  for (const s of scores) {
+    const itemNumber = Number(s.itemNumber);
+    const score = Number(s.score);
+    if (itemNumber < 1 || itemNumber > 9 || Number.isNaN(score) || score < 0 || score > 3) {
+      return res.status(400).json({ success: false, message: 'Each score must have valid itemNumber (1-9) and score (0-3).' });
+    }
+    scoresByItem.set(itemNumber, score);
+    totalScore += score;
+  }
+
+  if (scoresByItem.size !== 9) {
+    return res.status(400).json({ success: false, message: 'Responses must include all 9 unique items.' });
   }
 
   const db = await readDb();
@@ -554,39 +570,106 @@ app.post('/api/student/cssrs/submit', auth, ensureConsent, async (req, res) => {
   db.assessments.push({
     assessmentId: db.counters.assessmentId++,
     studentId: req.user.studentId,
-    type: 'CSSRS',
+    type: 'PHQ9',
     submittedAt: nowIso(),
     cycleId: cycle.cycleId
   });
 
-  if (item3) {
-    const classification = createClassification(db, req.user.studentId, cycle.cycleId, 'Crisis', null, {
-      source: 'CSSRS',
-      cssrs: { item1, item2, item3 }
-    });
+  let riskLevel = 'Low';
+  if (totalScore >= 20) riskLevel = 'Crisis';
+  else if (totalScore >= 15) riskLevel = 'High';
+  else if (totalScore >= 10) riskLevel = 'Moderate';
 
+  const classification = createClassification(db, req.user.studentId, cycle.cycleId, riskLevel, null, {
+    source: 'PHQ9',
+    totalScore,
+    items: Object.fromEntries(scoresByItem)
+  });
+
+  if (riskLevel === 'Crisis' || riskLevel === 'High') {
     const student = db.students.find((s) => s.studentId === req.user.studentId);
     createNotification(
       db,
       classification.classificationId,
-      `CRISIS alert (identity revealed per rule): ${student.name} (${student.studentId}) active suicidal ideation item=3 yes.`,
-      false
+      `${riskLevel} depression risk: ${student.name} (${student.studentId}) PHQ-9 score=${totalScore}.`,
+      true
     );
-
-    await writeDb(db);
-    return res.json({
-      success: true,
-      data: {
-        crisisFlag: true,
-        riskLevel: 'Crisis',
-        hotline: ['NCMH Crisis Hotline: 1553', 'Hopeline PH: +63 917 558 4673'],
-        priorityAlertSent: true
-      }
-    });
   }
 
   await writeDb(db);
-  return res.json({ success: true, data: { crisisFlag: false, message: 'No crisis threshold triggered.' } });
+  return res.json({
+    success: true,
+    data: {
+      riskLevel,
+      totalScore,
+      referralTriggered: riskLevel !== 'Low'
+    }
+  });
+});
+
+app.post('/api/student/gad7/submit', auth, ensureConsent, async (req, res) => {
+  const { scores } = req.body || {};
+  if (!Array.isArray(scores) || scores.length !== 7) {
+    return res.status(400).json({ success: false, message: 'Exactly 7 GAD-7 scores are required.' });
+  }
+
+  const scoresByItem = new Map();
+  let totalScore = 0;
+  for (const s of scores) {
+    const itemNumber = Number(s.itemNumber);
+    const score = Number(s.score);
+    if (itemNumber < 1 || itemNumber > 7 || Number.isNaN(score) || score < 0 || score > 3) {
+      return res.status(400).json({ success: false, message: 'Each score must have valid itemNumber (1-7) and score (0-3).' });
+    }
+    scoresByItem.set(itemNumber, score);
+    totalScore += score;
+  }
+
+  if (scoresByItem.size !== 7) {
+    return res.status(400).json({ success: false, message: 'Responses must include all 7 unique items.' });
+  }
+
+  const db = await readDb();
+  const cycle = ensureCycle(db, req.user.studentId);
+
+  db.assessments.push({
+    assessmentId: db.counters.assessmentId++,
+    studentId: req.user.studentId,
+    type: 'GAD7',
+    submittedAt: nowIso(),
+    cycleId: cycle.cycleId
+  });
+
+  let riskLevel = 'Low';
+  if (totalScore >= 15) riskLevel = 'Crisis';
+  else if (totalScore >= 10) riskLevel = 'High';
+  else if (totalScore >= 5) riskLevel = 'Moderate';
+
+  const classification = createClassification(db, req.user.studentId, cycle.cycleId, riskLevel, null, {
+    source: 'GAD7',
+    totalScore,
+    items: Object.fromEntries(scoresByItem)
+  });
+
+  if (riskLevel === 'Crisis' || riskLevel === 'High') {
+    const student = db.students.find((s) => s.studentId === req.user.studentId);
+    createNotification(
+      db,
+      classification.classificationId,
+      `${riskLevel} anxiety risk: ${student.name} (${student.studentId}) GAD-7 score=${totalScore}.`,
+      true
+    );
+  }
+
+  await writeDb(db);
+  return res.json({
+    success: true,
+    data: {
+      riskLevel,
+      totalScore,
+      referralTriggered: riskLevel !== 'Low'
+    }
+  });
 });
 
 app.post('/api/student/esm/submit', auth, ensureConsent, async (req, res) => {
@@ -707,9 +790,10 @@ app.get('/api/ogc/dashboard', auth, requireRole('ogc'), async (req, res) => {
     return res.status(404).json({ success: false, message: 'Facilitator not found.' });
   }
 
+  const facilitatorScope = `${facilitator.assignedCollege || ''}`.trim().toLowerCase();
   const studentsInScope = db.students.filter((s) => {
-    if (!facilitator.assignedCollege || facilitator.assignedCollege === 'All') return true;
-    return s.college === facilitator.assignedCollege;
+    if (!facilitatorScope || facilitatorScope === 'all') return true;
+    return `${s.college || ''}`.trim().toLowerCase() === facilitatorScope;
   });
 
   const latestClassifications = new Map();

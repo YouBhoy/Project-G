@@ -40,7 +40,7 @@ db.exec(`
   CREATE TABLE IF NOT EXISTS assessments (
     assessment_id INTEGER PRIMARY KEY AUTOINCREMENT,
     student_id TEXT NOT NULL,
-    type TEXT NOT NULL CHECK (type IN ('DASS21', 'CSSRS', 'ESM')),
+    type TEXT NOT NULL CHECK (type IN ('DASS21', 'PHQ9', 'GAD7', 'ESM')),
     submitted_at TEXT NOT NULL,
     cycle_id INTEGER NOT NULL,
     FOREIGN KEY (student_id) REFERENCES students(student_id) ON UPDATE CASCADE ON DELETE CASCADE,

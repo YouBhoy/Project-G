@@ -12,7 +12,8 @@ async function request(path, options = {}, token) {
 
   const response = await fetch(`${API_BASE_URL}${path}`, {
     ...options,
-    headers
+    headers,
+    cache: 'no-store'
   });
 
   const payload = await response.json();
@@ -30,7 +31,8 @@ export const api = {
   setConsent: (consent, token) => request('/api/student/consent', { method: 'POST', body: JSON.stringify({ consent }) }, token),
   dassQuestions: (token) => request('/api/student/dass21/questions', {}, token),
   submitDass: (responses, token) => request('/api/student/dass21/submit', { method: 'POST', body: JSON.stringify({ responses }) }, token),
-  submitCssrs: (body, token) => request('/api/student/cssrs/submit', { method: 'POST', body: JSON.stringify(body) }, token),
+  submitPhq9: (body, token) => request('/api/student/phq9/submit', { method: 'POST', body: JSON.stringify(body) }, token),
+  submitGad7: (body, token) => request('/api/student/gad7/submit', { method: 'POST', body: JSON.stringify(body) }, token),
   submitEsm: (body, token) => request('/api/student/esm/submit', { method: 'POST', body: JSON.stringify(body) }, token),
   dashboard: (token) => request('/api/student/dashboard', {}, token),
   ogcDashboard: (token) => request('/api/ogc/dashboard', {}, token),
