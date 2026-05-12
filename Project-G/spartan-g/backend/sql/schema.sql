@@ -132,3 +132,76 @@ CREATE TABLE IF NOT EXISTS notifications (
     FOREIGN KEY (classification_id) REFERENCES risk_classifications(classification_id)
     ON UPDATE CASCADE ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS availability_slots (
+  slot_id INT NOT NULL AUTO_INCREMENT,
+  facilitator_id INT NOT NULL,
+  slot_date VARCHAR(40) NOT NULL,
+  start_time VARCHAR(8) NOT NULL,
+  end_time VARCHAR(8) NOT NULL,
+  max_slots INT NOT NULL DEFAULT 1,
+  booked_count INT NOT NULL DEFAULT 0,
+  status ENUM('Available', 'Full', 'Blocked') NOT NULL DEFAULT 'Available',
+  created_at VARCHAR(40) NOT NULL,
+  PRIMARY KEY (slot_id),
+  KEY idx_availability_slots_facilitator_id (facilitator_id),
+  KEY idx_availability_slots_slot_date (slot_date),
+  CONSTRAINT fk_availability_slots_facilitators
+    FOREIGN KEY (facilitator_id) REFERENCES facilitators(facilitator_id)
+    ON UPDATE CASCADE ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS appointments (
+  appointment_id INT NOT NULL AUTO_INCREMENT,
+  student_id VARCHAR(128) NOT NULL,
+  facilitator_id INT NOT NULL,
+  slot_id INT NOT NULL,
+  appointment_date VARCHAR(40) NOT NULL,
+  appointment_time VARCHAR(8) NOT NULL,
+  status ENUM('Requested', 'Approved', 'Rejected', 'Completed', 'Cancelled') NOT NULL DEFAULT 'Requested',
+  student_notes TEXT DEFAULT NULL,
+  ogc_notes TEXT DEFAULT NULL,
+  rejection_reason TEXT DEFAULT NULL,
+  requested_at VARCHAR(40) NOT NULL,
+  approved_at VARCHAR(40) DEFAULT NULL,
+  rejected_at VARCHAR(40) DEFAULT NULL,
+  completed_at VARCHAR(40) DEFAULT NULL,
+  PRIMARY KEY (appointment_id),
+  KEY idx_appointments_student_id (student_id),
+  KEY idx_appointments_facilitator_id (facilitator_id),
+  KEY idx_appointments_status (status),
+  KEY idx_appointments_appointment_date (appointment_date),
+  CONSTRAINT fk_appointments_students
+    FOREIGN KEY (student_id) REFERENCES students(student_id)
+    ON UPDATE CASCADE ON DELETE CASCADE,
+  CONSTRAINT fk_appointments_facilitators
+    FOREIGN KEY (facilitator_id) REFERENCES facilitators(facilitator_id)
+    ON UPDATE CASCADE ON DELETE CASCADE,
+  CONSTRAINT fk_appointments_slots
+    FOREIGN KEY (slot_id) REFERENCES availability_slots(slot_id)
+    ON UPDATE CASCADE ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS emergency_contacts (
+  contact_id INT NOT NULL AUTO_INCREMENT,
+  contact_type ENUM('Hotline', 'Campus Service', 'Emergency Service', 'Mental Health Service') NOT NULL,
+  name VARCHAR(255) NOT NULL,
+  description TEXT DEFAULT NULL,
+  phone VARCHAR(20) NOT NULL,
+  email VARCHAR(255) DEFAULT NULL,
+  website VARCHAR(255) DEFAULT NULL,
+  available_24_7 TINYINT(1) NOT NULL DEFAULT 0,
+  priority INT NOT NULL DEFAULT 0,
+  created_at VARCHAR(40) NOT NULL,
+  PRIMARY KEY (contact_id),
+  KEY idx_emergency_contacts_type (contact_type),
+  KEY idx_emergency_contacts_priority (priority)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+INSERT IGNORE INTO emergency_contacts (contact_type, name, description, phone, available_24_7, priority, created_at)
+VALUES 
+  ('Hotline', 'National Mental Health Hotline', 'PH National Crisis Hotline', '0917-899-8727', 1, 1, NOW()),
+  ('Hotline', 'Philippine Red Cross', 'Emergency medical assistance', '143', 1, 2, NOW()),
+  ('Hotline', 'Suicide Prevention Hotline', '24/7 suicide crisis support', '0966-351-4518', 1, 1, NOW()),
+  ('Campus Service', 'BatStateU-TNEU Health Services', 'Campus health center', '(043) 740-0085', 0, 3, NOW()),
+  ('Mental Health Service', 'Department of Health - Mental Health Unit', 'Government mental health support', '(02) 8651-7800', 0, 4, NOW());
