@@ -23,50 +23,17 @@ Example `.env` values for a default XAMPP install:
 ```env
 DB_CLIENT=mysql
 MYSQL_HOST=127.0.0.1
-MYSQL_PORT=3306
-MYSQL_USER=root
-MYSQL_PASSWORD=
-MYSQL_DATABASE=spartan_g
-```
+## 🚀 Quick Setup
 
-The backend will then read and write against MySQL in XAMPP.
+**See [SETUP.md](./SETUP.md) for complete step-by-step guide** (30 seconds with XAMPP MySQL)
 
-### 2) Student Portal
-
-```powershell
-cd "spartan-g/student-portal"
-npm install
-$env:VITE_API_BASE_URL="http://localhost:3001"
-npm run dev
-```
-
-Runs on `http://localhost:5175`.
-
-## Testing the project with XAMPP
-
-If you want to demo it the way you're used to, use XAMPP MySQL and a local database.
-
-1. Open XAMPP Control Panel and start `MySQL`.
-2. Open `http://localhost/phpmyadmin` in your browser.
-3. Create a database named `spartan_g`.
-4. Select the `spartan_g` database, then import [backend/sql/schema.sql](backend/sql/schema.sql).
-5. Open [backend/.env](backend/.env) and make sure it contains:
-
-```env
-DB_CLIENT=mysql
-MYSQL_HOST=127.0.0.1
-MYSQL_PORT=3306
-MYSQL_USER=root
-MYSQL_PASSWORD=
-MYSQL_DATABASE=spartan_g
-```
-
-6. In a terminal, run the backend:
-
-```powershell
-cd "spartan-g/backend"
-npm install
-npm run dev
+### TL;DR
+1. Start XAMPP MySQL
+2. Import `backend/sql/setup-spartan-g.sql` via phpMyAdmin
+3. `npm install` in both `backend/` and `student-portal/`
+4. `npm run dev` in `backend/` (port 3001)
+5. `npm run dev` in `student-portal/` (port 5175)
+6. Open `http://localhost:5175` → `alice@campus.edu` / `password123`
 ```
 
 7. In another terminal, run the student portal:
