@@ -20,7 +20,10 @@ function defaultDb() {
       esmEntryId: 1,
       classificationId: 1,
       actionId: 1,
-      notifId: 1
+      notifId: 1,
+      slotId: 1,
+      appointmentId: 1,
+      contactId: 1
     },
     students: [],
     assessmentCycles: [],
@@ -38,7 +41,10 @@ function defaultDb() {
         passwordHash: DEFAULT_FACILITATOR.passwordHash
       }
     ],
-    notifications: []
+    notifications: [],
+    availabilitySlots: [],
+    appointments: [],
+    emergencyContacts: []
   };
 }
 
@@ -198,6 +204,47 @@ function mapNotification(row) {
   };
 }
 
+function mapAvailabilitySlot(row) {
+  return {
+    slotId: row.slot_id,
+    facilitatorId: row.facilitator_id,
+    slotDate: row.slot_date,
+    startTime: row.start_time,
+    endTime: row.end_time,
+    maxSlots: row.max_slots,
+    bookedCount: row.booked_count,
+    status: row.status,
+    createdAt: row.created_at
+  };
+}
+
+function mapAppointment(row) {
+  return {
+    appointmentId: row.appointment_id,
+    studentId: row.student_id,
+    facilitatorId: row.facilitator_id,
+    slotId: row.slot_id,
+    status: row.status,
+    requestedAt: row.requested_at,
+    approvedAt: row.approved_at,
+    rejectedAt: row.rejected_at,
+    completedAt: row.completed_at
+  };
+}
+
+function mapEmergencyContact(row) {
+  return {
+    contactId: row.contact_id,
+    contactType: row.contact_type,
+    name: row.name,
+    phone: row.phone,
+    email: row.email,
+    priority: row.priority,
+    available24_7: toBool(row.available_24_7),
+    createdAt: row.created_at
+  };
+}
+
 export async function readDb() {
   const snapshot = defaultDb();
 
@@ -210,6 +257,9 @@ export async function readDb() {
   snapshot.referralActions = (await query('SELECT * FROM referral_actions ORDER BY action_id')).map(mapAction);
   snapshot.facilitators = (await query('SELECT * FROM facilitators ORDER BY facilitator_id')).map(mapFacilitator);
   snapshot.notifications = (await query('SELECT * FROM notifications ORDER BY notif_id')).map(mapNotification);
+  snapshot.availabilitySlots = (await query('SELECT * FROM availability_slots ORDER BY slot_id')).map(mapAvailabilitySlot);
+  snapshot.appointments = (await query('SELECT * FROM appointments ORDER BY appointment_id')).map(mapAppointment);
+  snapshot.emergencyContacts = (await query('SELECT * FROM emergency_contacts ORDER BY contact_id')).map(mapEmergencyContact);
 
   if (snapshot.facilitators.length === 0) {
     snapshot.facilitators = [
@@ -230,7 +280,10 @@ export async function readDb() {
     esmEntryId: Number((await query('SELECT COALESCE(MAX(entry_id), 0) + 1 AS nextId FROM esm_entries'))[0].nextId || 1),
     classificationId: Number((await query('SELECT COALESCE(MAX(classification_id), 0) + 1 AS nextId FROM risk_classifications'))[0].nextId || 1),
     actionId: Number((await query('SELECT COALESCE(MAX(action_id), 0) + 1 AS nextId FROM referral_actions'))[0].nextId || 1),
-    notifId: Number((await query('SELECT COALESCE(MAX(notif_id), 0) + 1 AS nextId FROM notifications'))[0].nextId || 1)
+    notifId: Number((await query('SELECT COALESCE(MAX(notif_id), 0) + 1 AS nextId FROM notifications'))[0].nextId || 1),
+    slotId: Number((await query('SELECT COALESCE(MAX(slot_id), 0) + 1 AS nextId FROM availability_slots'))[0].nextId || 1),
+    appointmentId: Number((await query('SELECT COALESCE(MAX(appointment_id), 0) + 1 AS nextId FROM appointments'))[0].nextId || 1),
+    contactId: Number((await query('SELECT COALESCE(MAX(contact_id), 0) + 1 AS nextId FROM emergency_contacts'))[0].nextId || 1)
   };
 
   return snapshot;
@@ -239,6 +292,9 @@ export async function readDb() {
 export async function writeDb(snapshot) {
   await withTransaction(async (connection) => {
     const tables = [
+      'appointments',
+      'availability_slots',
+      'emergency_contacts',
       'notifications',
       'referral_actions',
       'risk_classifications',
@@ -314,6 +370,27 @@ export async function writeDb(snapshot) {
       await connection.query(
         'INSERT INTO notifications (notif_id, facilitator_id, classification_id, anonymized_flag, sent_at, message) VALUES (?, ?, ?, ?, ?, ?)',
         [notification.notifId, notification.facilitatorId, notification.classificationId, fromBool(notification.anonymizedFlag), notification.sentAt, notification.message]
+      );
+    }
+
+    for (const slot of snapshot.availabilitySlots || []) {
+      await connection.query(
+        'INSERT INTO availability_slots (slot_id, facilitator_id, slot_date, start_time, end_time, max_slots, booked_count, status, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
+        [slot.slotId, slot.facilitatorId, slot.slotDate, slot.startTime, slot.endTime, slot.maxSlots, slot.bookedCount, slot.status, slot.createdAt]
+      );
+    }
+
+    for (const appointment of snapshot.appointments || []) {
+      await connection.query(
+        'INSERT INTO appointments (appointment_id, student_id, facilitator_id, slot_id, status, requested_at, approved_at, rejected_at, completed_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
+        [appointment.appointmentId, appointment.studentId, appointment.facilitatorId, appointment.slotId, appointment.status, appointment.requestedAt, appointment.approvedAt, appointment.rejectedAt, appointment.completedAt]
+      );
+    }
+
+    for (const contact of snapshot.emergencyContacts || []) {
+      await connection.query(
+        'INSERT INTO emergency_contacts (contact_id, contact_type, name, phone, email, priority, available_24_7, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
+        [contact.contactId, contact.contactType, contact.name, contact.phone, contact.email, contact.priority, fromBool(contact.available24_7), contact.createdAt]
       );
     }
   });

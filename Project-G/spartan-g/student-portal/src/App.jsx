@@ -1,17 +1,48 @@
 import { useEffect, useMemo, useState } from 'react';
 import { api } from './api.js';
 
-const studentPages = [
-  { key: 'dass21', label: 'DASS-21' },
-  { key: 'phq9', label: 'PHQ-9' },
-  { key: 'gad7', label: 'GAD-7' },
-  { key: 'esm-checkin', label: 'ESM Check-in' },
-  { key: 'dashboard', label: 'Dashboard' }
-];
+const studentModules = {
+  gawa: {
+    label: 'GAWA (Assessment)',
+    pages: [
+      { key: 'dass21', label: 'DASS-21' },
+      { key: 'phq9', label: 'PHQ-9' },
+      { key: 'gad7', label: 'GAD-7' },
+      { key: 'esm-checkin', label: 'ESM Check-in' },
+      { key: 'dashboard', label: 'Dashboard' }
+    ]
+  },
+  gabay: {
+    label: 'GABAY (Referral & Guidance)',
+    pages: [
+      { key: 'book-appointment', label: 'Book Appointment' },
+      { key: 'my-appointments', label: 'My Appointments' },
+      { key: 'emergency-contacts', label: 'Emergency Contacts' }
+    ]
+  },
+  ginhawa: {
+    label: 'GINHAWA (Wellness Resources)',
+    pages: [
+      { key: 'wellness-resources', label: 'Wellness Resources' },
+      { key: 'safety-plan', label: 'Safety Plan' }
+    ]
+  }
+};
+
+const allStudentPages = Object.values(studentModules).flatMap((m) => m.pages);
 
 function normalizeStudentPageKey(input) {
-  const allowed = new Set(studentPages.map((p) => p.key));
+  const allowed = new Set(allStudentPages.map((p) => p.key));
   return allowed.has(input) ? input : 'dass21';
+}
+
+function getModuleFromPageKey(pageKey) {
+  for (const [moduleKey, module] of Object.entries(studentModules)) {
+    if (module.pages.some((p) => p.key === pageKey)) {
+      return moduleKey;
+    }
+  }
+  return 'gawa';
 }
 
 function readPageFromHash() {
@@ -47,12 +78,20 @@ export default function App() {
   const [student, setStudent] = useState(null);
   const [facilitator, setFacilitator] = useState(null);
   const [activePage, setActivePage] = useState(readPageFromHash());
+  const [activeModule, setActiveModule] = useState(null);
+  const [menuOpen, setMenuOpen] = useState(false);
   const [questions, setQuestions] = useState([]);
   const [dassAnswers, setDassAnswers] = useState({});
   const [lastDassResult, setLastDassResult] = useState(null);
   const [lastEsmResult, setLastEsmResult] = useState(null);
   const [dashboard, setDashboard] = useState(null);
   const [ogcDashboard, setOgcDashboard] = useState(null);
+  const [ogcTab, setOgcTab] = useState('analytics');
+  const [ogcAppointments, setOgcAppointments] = useState([]);
+  const [ogcAvailabilitySlots, setOgcAvailabilitySlots] = useState([]);
+  const [emergencyContacts, setEmergencyContacts] = useState([]);
+  const [availableSlots, setAvailableSlots] = useState([]);
+  const [studentAppointments, setStudentAppointments] = useState([]);
   const [showConsentModal, setShowConsentModal] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -155,10 +194,71 @@ export default function App() {
   }, [token, sessionRole]);
 
   useEffect(() => {
+    if (!token || sessionRole !== 'student') return;
+    if (activePage === 'book-appointment') {
+      run(async () => {
+        const data = await api.getAvailableSlots(token);
+        setAvailableSlots(data.availableSlots || []);
+      });
+    }
+  }, [activePage, token, sessionRole]);
+
+  useEffect(() => {
+    if (!token || sessionRole !== 'student') return;
+    if (activePage === 'my-appointments') {
+      run(async () => {
+        const data = await api.getStudentAppointments(token);
+        setStudentAppointments(data.appointments || []);
+      });
+    }
+  }, [activePage, token, sessionRole]);
+
+  useEffect(() => {
+    if (!token || sessionRole !== 'student') return;
+    if (activePage === 'emergency-contacts') {
+      run(async () => {
+        const data = await api.getEmergencyContacts();
+        setEmergencyContacts(data.contacts || []);
+      });
+    }
+  }, [activePage, token, sessionRole]);
+
+  useEffect(() => {
+    if (!token || sessionRole !== 'ogc') return;
+    if (ogcTab === 'slots') {
+      run(async () => {
+        const result = await api.getOgcAvailabilitySlots(token);
+        setOgcAvailabilitySlots(result.slots || []);
+      });
+    }
+  }, [ogcTab, token, sessionRole]);
+
+  useEffect(() => {
+    if (!token || sessionRole !== 'ogc') return;
+    if (ogcTab === 'appointments') {
+      run(async () => {
+        const result = await api.getOgcAppointments(token);
+        setOgcAppointments(result.appointments || []);
+      });
+    }
+  }, [ogcTab, token, sessionRole]);
+
+  useEffect(() => {
+    if (!token || sessionRole !== 'ogc') return;
+    if (ogcTab === 'contacts') {
+      run(async () => {
+        const result = await api.getEmergencyContacts();
+        setEmergencyContacts(result.contacts || []);
+      });
+    }
+  }, [ogcTab, token, sessionRole]);
+
+  useEffect(() => {
     const onHashChange = () => {
       if (sessionRole !== 'student') return;
       const page = readPageFromHash();
       setActivePage(page);
+      setActiveModule(getModuleFromPageKey(page));
       if (page === 'dass21') loadQuestionsIfNeeded();
     };
 
@@ -183,7 +283,16 @@ export default function App() {
     const safeKey = normalizeStudentPageKey(pageKey);
     window.location.hash = `/${safeKey}`;
     setActivePage(safeKey);
+    setActiveModule(getModuleFromPageKey(safeKey));
     if (safeKey === 'dass21') loadQuestionsIfNeeded();
+  }
+
+  function goToModule(moduleKey) {
+    setActiveModule(moduleKey);
+    const firstPage = studentModules[moduleKey].pages[0];
+    if (firstPage) {
+      goToPage(firstPage.key);
+    }
   }
 
   function handleLoginSubmit(e) {
@@ -519,75 +628,341 @@ export default function App() {
             </div>
           </header>
 
+          <nav className="ogc-tabs card">
+            <button type="button" className={`tab-btn ${ogcTab === 'analytics' ? 'active' : ''}`} onClick={() => setOgcTab('analytics')}>Analytics</button>
+            <button type="button" className={`tab-btn ${ogcTab === 'slots' ? 'active' : ''}`} onClick={() => setOgcTab('slots')}>Manage Slots</button>
+            <button type="button" className={`tab-btn ${ogcTab === 'appointments' ? 'active' : ''}`} onClick={() => setOgcTab('appointments')}>Appointments</button>
+            <button type="button" className={`tab-btn ${ogcTab === 'contacts' ? 'active' : ''}`} onClick={() => setOgcTab('contacts')}>Emergency Contacts</button>
+          </nav>
+
           <section className="card">
-            <h2>Pseudonymized Student Analytics</h2>
-            <p>Student identities are hidden by default. Identity is only revealed for Crisis-level contact action.</p>
-            <button type="button" onClick={refreshOgcDashboard} disabled={loading}>{loading ? 'Refreshing...' : 'Load Analytics'}</button>
+            {ogcTab === 'analytics' && (
+              <>
+                <h2>Pseudonymized Student Analytics</h2>
+                <p>Student identities are hidden by default. Identity is only revealed for Crisis-level contact action.</p>
+                <button type="button" onClick={refreshOgcDashboard} disabled={loading}>{loading ? 'Refreshing...' : 'Load Analytics'}</button>
 
             {ogcDashboard ? (
               <div className="dashboard-wrap">
-                <div className="hero-metrics">
-                  <article className="metric-card"><h3>Total Students</h3><p>{ogcDashboard.summary?.totalStudents || 0}</p></article>
-                  <article className="metric-card"><h3>Critical Alerts</h3><p>{ogcDashboard.summary?.criticalCount || 0}</p></article>
-                  <article className="metric-card"><h3>High Risk</h3><p>{ogcDashboard.summary?.riskCounts?.High || 0}</p></article>
+                {/* Tab Navigation */}
+                <div className="ogc-tabs">
+                  <button className={`tab-btn ${ogcTab === 'analytics' ? 'active' : ''}`} onClick={() => setOgcTab('analytics')}>Analytics</button>
+                  <button className={`tab-btn ${ogcTab === 'slots' ? 'active' : ''}`} onClick={() => setOgcTab('slots')}>Slots</button>
+                  <button className={`tab-btn ${ogcTab === 'appointments' ? 'active' : ''}`} onClick={() => setOgcTab('appointments')}>Appointments</button>
+                  <button className={`tab-btn ${ogcTab === 'contacts' ? 'active' : ''}`} onClick={() => setOgcTab('contacts')}>Emergency Contacts</button>
                 </div>
 
-                <article className="summary-card full-width">
-                  <h3>Critical Awareness Queue</h3>
-                  {ogcDashboard.criticalAlerts?.length ? (
-                    <div className="ogc-list">
-                      {ogcDashboard.criticalAlerts.map((alert) => (
-                        <div key={`${alert.pseudoId}-${alert.latestClassificationAt}`} className="ogc-item">
-                          <p><strong>{alert.pseudoId}</strong> � Crisis classification at {new Date(alert.latestClassificationAt).toLocaleString()}</p>
-                          {alert.contact?.canContact ? (
-                            <button type="button" onClick={() => contactCriticalStudent(alert.contact.studentId)}>Contact Student</button>
-                          ) : null}
-                        </div>
-                      ))}
+                {/* Analytics Tab */}
+                {ogcTab === 'analytics' && (
+                  <>
+                    <div className="hero-metrics">
+                      <article className="metric-card"><h3>Total Students</h3><p>{ogcDashboard.summary?.totalStudents || 0}</p></article>
+                      <article className="metric-card"><h3>Critical Alerts</h3><p>{ogcDashboard.summary?.criticalCount || 0}</p></article>
+                      <article className="metric-card"><h3>High Risk</h3><p>{ogcDashboard.summary?.riskCounts?.High || 0}</p></article>
                     </div>
-                  ) : <p>No crisis alerts right now.</p>}
-                </article>
 
-                <article className="summary-card full-width">
-                  <h3>Student Risk Overview</h3>
-                  {ogcDashboard.students?.length ? (
-                    <div className="ogc-table-wrap">
-                      <table className="ogc-table">
-                        <thead>
-                          <tr>
-                            <th>Pseudonym ID</th>
-                            <th>College</th>
-                            <th>Year</th>
-                            <th>Risk</th>
-                            <th>Trajectory</th>
-                            <th>Avg Mood</th>
-                            <th>Avg Energy</th>
-                            <th>Latest Assessment</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {ogcDashboard.students.map((row) => (
-                            <tr key={`${row.pseudoId}-${row.latestClassificationAt || 'none'}`}>
-                              <td>{row.pseudoId}</td>
-                              <td>{row.college}</td>
-                              <td>{row.yearLevel}</td>
-                              <td><span className={riskClassName(row.latestRiskLevel)}>{row.latestRiskLevel}</span></td>
-                              <td>{row.latestTrajectory || 'Stable'}</td>
-                              <td>{row.averageMood ?? '-'}</td>
-                              <td>{row.averageEnergy ?? '-'}</td>
-                              <td>{row.latestClassificationAt ? new Date(row.latestClassificationAt).toLocaleString() : '-'}</td>
-                            </tr>
+                    <article className="summary-card full-width">
+                      <h3>Critical Awareness Queue</h3>
+                      {ogcDashboard.criticalAlerts?.length ? (
+                        <div className="ogc-list">
+                          {ogcDashboard.criticalAlerts.map((alert) => (
+                            <div key={`${alert.pseudoId}-${alert.latestClassificationAt}`} className="ogc-item">
+                              <p><strong>{alert.pseudoId}</strong> – Crisis classification at {new Date(alert.latestClassificationAt).toLocaleString()}</p>
+                              {alert.contact?.canContact ? (
+                                <button type="button" onClick={() => contactCriticalStudent(alert.contact.studentId)}>Contact Student</button>
+                              ) : null}
+                            </div>
                           ))}
-                        </tbody>
-                      </table>
-                    </div>
-                  ) : <p>No student data in scope yet.</p>}
-                </article>
+                        </div>
+                      ) : <p>No crisis alerts right now.</p>}
+                    </article>
+
+                    <article className="summary-card full-width">
+                      <h3>Student Risk Overview</h3>
+                      {ogcDashboard.students?.length ? (
+                        <div className="ogc-table-wrap">
+                          <table className="ogc-table">
+                            <thead>
+                              <tr>
+                                <th>Pseudonym ID</th>
+                                <th>College</th>
+                                <th>Year</th>
+                                <th>Risk</th>
+                                <th>Trajectory</th>
+                                <th>Avg Mood</th>
+                                <th>Avg Energy</th>
+                                <th>Latest Assessment</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {ogcDashboard.students.map((row) => (
+                                <tr key={`${row.pseudoId}-${row.latestClassificationAt || 'none'}`}>
+                                  <td>{row.pseudoId}</td>
+                                  <td>{row.college}</td>
+                                  <td>{row.yearLevel}</td>
+                                  <td><span className={riskClassName(row.latestRiskLevel)}>{row.latestRiskLevel}</span></td>
+                                  <td>{row.latestTrajectory || 'Stable'}</td>
+                                  <td>{row.averageMood ?? '-'}</td>
+                                  <td>{row.averageEnergy ?? '-'}</td>
+                                  <td>{row.latestClassificationAt ? new Date(row.latestClassificationAt).toLocaleString() : '-'}</td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                      ) : <p>No student data in scope yet.</p>}
+                    </article>
+                  </>
+                )}
+
+                {/* Slots Tab */}
+                {ogcTab === 'slots' && (
+                  <>
+                    <article className="summary-card full-width">
+                      <h3>Manage Availability Slots</h3>
+                      <form className="form-row" onSubmit={(e) => { e.preventDefault(); }}>
+                        <div className="form-group">
+                          <label htmlFor="slot-date">Date</label>
+                          <input type="date" id="slot-date" />
+                        </div>
+                        <div className="form-group">
+                          <label htmlFor="slot-start">Start Time</label>
+                          <input type="time" id="slot-start" />
+                        </div>
+                        <div className="form-group">
+                          <label htmlFor="slot-end">End Time</label>
+                          <input type="time" id="slot-end" />
+                        </div>
+                        <div className="form-group">
+                          <label htmlFor="slot-duration">Duration (minutes)</label>
+                          <input type="number" id="slot-duration" min="15" step="15" defaultValue="30" />
+                        </div>
+                        <button type="submit">Add Slot</button>
+                      </form>
+
+                      <h4 style={{ marginTop: '2rem' }}>Available Slots</h4>
+                      {ogcAvailabilitySlots?.length ? (
+                        <div className="ogc-table-wrap">
+                          <table className="ogc-table">
+                            <thead>
+                              <tr>
+                                <th>Date</th>
+                                <th>Start Time</th>
+                                <th>End Time</th>
+                                <th>Duration</th>
+                                <th>Status</th>
+                                <th>Action</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {ogcAvailabilitySlots.map((slot, idx) => (
+                                <tr key={idx}>
+                                  <td>{slot.date}</td>
+                                  <td>{slot.startTime}</td>
+                                  <td>{slot.endTime}</td>
+                                  <td>{slot.duration} min</td>
+                                  <td>{slot.isBooked ? 'Booked' : 'Available'}</td>
+                                  <td><button type="button" className="muted-btn">Edit</button> <button type="button" className="muted-btn">Delete</button></td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                      ) : <p>No availability slots set yet.</p>}
+                    </article>
+                  </>
+                )}
+
+                {/* Appointments Tab */}
+                {ogcTab === 'appointments' && (
+                  <>
+                    <article className="summary-card full-width">
+                      <h3>Appointment Requests</h3>
+                      {ogcAppointments?.length ? (
+                        <div className="ogc-table-wrap">
+                          <table className="ogc-table">
+                            <thead>
+                              <tr>
+                                <th>Student ID</th>
+                                <th>Requested Date</th>
+                                <th>Requested Time</th>
+                                <th>Reason</th>
+                                <th>Status</th>
+                                <th>Action</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {ogcAppointments.map((apt, idx) => (
+                                <tr key={idx}>
+                                  <td>{apt.pseudoId || apt.studentId}</td>
+                                  <td>{apt.requestedDate}</td>
+                                  <td>{apt.requestedTime}</td>
+                                  <td>{apt.reason}</td>
+                                  <td><span className={`status-badge ${apt.status === 'approved' ? 'approved' : apt.status === 'rejected' ? 'rejected' : 'pending'}`}>{apt.status}</span></td>
+                                  <td>
+                                    {apt.status === 'pending' && (
+                                      <>
+                                        <button type="button" className="action-btn" onClick={() => { /* approve action */ }}>Approve</button>
+                                        <button type="button" className="muted-btn" onClick={() => { /* reject action */ }}>Reject</button>
+                                      </>
+                                    )}
+                                    {apt.status === 'approved' && (
+                                      <button type="button" className="muted-btn" onClick={() => { /* mark complete */ }}>Mark Complete</button>
+                                    )}
+                                  </td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                      ) : <p>No appointment requests.</p>}
+                    </article>
+                  </>
+                )}
+
+                {/* Emergency Contacts Tab */}
+                {ogcTab === 'contacts' && (
+                  <>
+                    <article className="summary-card full-width">
+                      <h3>Emergency Contacts</h3>
+                      <form className="form-row" onSubmit={(e) => { e.preventDefault(); }}>
+                        <div className="form-group">
+                          <label htmlFor="contact-name">Contact Name</label>
+                          <input type="text" id="contact-name" placeholder="e.g., Campus Security" />
+                        </div>
+                        <div className="form-group">
+                          <label htmlFor="contact-type">Type</label>
+                          <select id="contact-type">
+                            <option value="">Select Type</option>
+                            <option value="security">Campus Security</option>
+                            <option value="medical">Medical</option>
+                            <option value="counseling">Counseling</option>
+                            <option value="admin">Administration</option>
+                            <option value="other">Other</option>
+                          </select>
+                        </div>
+                        <div className="form-group">
+                          <label htmlFor="contact-phone">Phone</label>
+                          <input type="tel" id="contact-phone" placeholder="Phone number" />
+                        </div>
+                        <div className="form-group">
+                          <label htmlFor="contact-email">Email</label>
+                          <input type="email" id="contact-email" placeholder="Email address" />
+                        </div>
+                        <button type="submit">Add Contact</button>
+                      </form>
+
+                      <h4 style={{ marginTop: '2rem' }}>Current Emergency Contacts</h4>
+                      {emergencyContacts?.length ? (
+                        <div className="ogc-table-wrap">
+                          <table className="ogc-table">
+                            <thead>
+                              <tr>
+                                <th>Name</th>
+                                <th>Type</th>
+                                <th>Phone</th>
+                                <th>Email</th>
+                                <th>Action</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {emergencyContacts.map((contact, idx) => (
+                                <tr key={idx}>
+                                  <td>{contact.name}</td>
+                                  <td>{contact.type}</td>
+                                  <td>{contact.phone}</td>
+                                  <td>{contact.email}</td>
+                                  <td><button type="button" className="muted-btn">Edit</button> <button type="button" className="muted-btn">Delete</button></td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                      ) : <p>No emergency contacts configured yet.</p>}
+                    </article>
+                  </>
+                )}
               </div>
             ) : <p>Load the dashboard to see anonymized analytics.</p>}
+              </>
+            )}
 
-            {error ? <p className="error global-error">{error}</p> : null}
-            {info ? <p>{info}</p> : null}
+            {ogcTab === 'slots' && (
+              <>
+                <h2>Manage Availability Slots</h2>
+                <p>Create time slots for students to book counseling appointments.</p>
+                <div className="form-group">
+                  <input type="date" placeholder="Slot Date" id="slot-date" />
+                  <input type="time" placeholder="Start Time" id="slot-start" />
+                  <input type="time" placeholder="End Time" id="slot-end" />
+                  <input type="number" placeholder="Max Slots" defaultValue="5" id="slot-max" min="1" />
+                  <button type="button" onClick={() => run(async () => {
+                    const date = document.getElementById('slot-date').value;
+                    const start = document.getElementById('slot-start').value;
+                    const end = document.getElementById('slot-end').value;
+                    const max = parseInt(document.getElementById('slot-max').value, 10);
+                    if (!date || !start || !end) { setError('All fields required'); return; }
+                    const result = await api.createAvailabilitySlot({ slotDate: date, startTime: start, endTime: end, maxSlots: max }, token);
+                    setInfo(`Slot created: ${result.slotId}`);
+                  })} disabled={loading}>Create Slot</button>
+                </div>
+                <h3>Your Availability Slots</h3>
+                {ogcAvailabilitySlots.length === 0 && !loading ? <p className="info-message">Loading availability slots...</p> : null}
+                {ogcAvailabilitySlots.length ? (
+                  <div className="ogc-table-wrap"><table className="ogc-table"><thead><tr><th>Date</th><th>Start</th><th>End</th><th>Capacity</th><th>Booked</th><th>Status</th><th>Action</th></tr></thead><tbody>{ogcAvailabilitySlots.map((slot) => (<tr key={slot.slotId}><td>{slot.slotDate}</td><td>{slot.startTime}</td><td>{slot.endTime}</td><td>{slot.maxSlots}</td><td>{slot.bookedCount}</td><td>{slot.status}</td><td><button type="button" className="danger-btn" onClick={() => {
+                    if (!window.confirm(`Delete slot on ${slot.slotDate}?`)) return;
+                    run(async () => {
+                      await api.deleteAvailabilitySlot(slot.slotId, token);
+                      setInfo('Slot deleted');
+                      setOgcAvailabilitySlots(ogcAvailabilitySlots.filter(s => s.slotId !== slot.slotId));
+                    });
+                  }} disabled={loading}>Delete</button></td></tr>))}</tbody></table></div>
+                ) : <p>No slots created yet.</p>}
+              </>
+            )}
+
+            {ogcTab === 'appointments' && (
+              <>
+                <h2>Manage Appointments</h2>
+                <p>Review and respond to student appointment requests.</p>
+                {ogcAppointments.length === 0 && !loading ? <p className="info-message">Loading appointments...</p> : null}
+                {ogcAppointments.length ? (
+                  <div className="ogc-table-wrap"><table className="ogc-table"><thead><tr><th>Student</th><th>Date</th><th>Time</th><th>Status</th><th>Requested</th><th>Action</th></tr></thead><tbody>{ogcAppointments.map((appt) => (<tr key={appt.appointmentId}><td>{appt.pseudoId || 'N/A'}</td><td>{appt.slotDate || '-'}</td><td>{appt.startTime || '-'}</td><td><span className={`status-${appt.status.toLowerCase()}`}>{appt.status}</span></td><td>{new Date(appt.requestedAt).toLocaleString()}</td><td>{appt.status === 'Requested' && (<><button type="button" className="success-btn" onClick={() => {
+                    if (!window.confirm('Approve this appointment?')) return;
+                    run(async () => {
+                      await api.approveAppointment(appt.appointmentId, {}, token);
+                      setInfo('Approved');
+                      setOgcAppointments(ogcAppointments.map(a => a.appointmentId === appt.appointmentId ? { ...a, status: 'Approved' } : a));
+                    });
+                  }} disabled={loading}>Approve</button><button type="button" className="danger-btn" onClick={() => {
+                    if (!window.confirm('Reject this appointment?')) return;
+                    run(async () => {
+                      await api.rejectAppointment(appt.appointmentId, {}, token);
+                      setInfo('Rejected');
+                      setOgcAppointments(ogcAppointments.map(a => a.appointmentId === appt.appointmentId ? { ...a, status: 'Rejected' } : a));
+                    });
+                  }} disabled={loading}>Reject</button></>)}{appt.status === 'Approved' && (<button type="button" onClick={() => {
+                    if (!window.confirm('Mark this appointment as complete?')) return;
+                    run(async () => {
+                      await api.completeAppointment(appt.appointmentId, {}, token);
+                      setInfo('Completed');
+                      setOgcAppointments(ogcAppointments.map(a => a.appointmentId === appt.appointmentId ? { ...a, status: 'Completed' } : a));
+                    });
+                  }} disabled={loading}>Mark Complete</button>)}</td></tr>))}</tbody></table></div>
+                ) : <p>No appointment requests yet.</p>}
+              </>
+            )}
+
+            {ogcTab === 'contacts' && (
+              <>
+                <h2>Emergency Contacts</h2>
+                <p>Pre-configured emergency resources available to all students.</p>
+                {emergencyContacts.length === 0 && !loading ? <p className="info-message">Loading emergency contacts...</p> : null}
+                {emergencyContacts.length ? (
+                  <div className="contacts-grid">{emergencyContacts.map((contact) => (<article key={contact.contactId} className="contact-card"><div className="contact-header"><h3>{contact.name}</h3>{contact.available24_7 && <span className="badge">24/7</span>}</div><p><strong>Type:</strong> {contact.contactType}</p>{contact.phone && <p><strong>Phone:</strong> <a href={`tel:${contact.phone}`}>{contact.phone}</a></p>}{contact.email && <p><strong>Email:</strong> <a href={`mailto:${contact.email}`}>{contact.email}</a></p>}<p><strong>Priority:</strong> <span className={`priority-${contact.priority}`}>{contact.priority}</span></p></article>))}</div>
+                ) : <p>No contacts loaded.</p>}
+              </>
+            )}
           </section>
         </main>
 
@@ -599,10 +974,13 @@ export default function App() {
   return (
     <>
       <header className="inst-header">
-        <div className="inst-logo"><img src="/assets/Batangas_State_Logo.png" alt="Batangas State University seal" /></div>
-        <div className="inst-wordmark">
-          <span>BATANGAS STATE UNIVERSITY</span>
-          <span className="tagline">The National Engineering University</span>
+        <button type="button" className="hamburger-menu" onClick={() => setMenuOpen(!menuOpen)} title="Toggle Menu">☰</button>
+        <div className="header-brand">
+          <div className="inst-logo"><img src="/assets/Batangas_State_Logo.png" alt="Batangas State University seal" /></div>
+          <div className="inst-wordmark">
+            <span>BATANGAS STATE UNIVERSITY</span>
+            <span className="tagline">The National Engineering University</span>
+          </div>
         </div>
         <div className="topbar-actions">
           <button type="button" className="muted-btn" onClick={() => setShowConsentModal(true)}>Manage Consent</button>
@@ -611,52 +989,79 @@ export default function App() {
       </header>
 
       <main className="shell app-shell">
-        <header className="topbar card">
-          <div>
-            <h1>Student Wellbeing Assessment</h1>
-            <p>{student?.name} ({student?.studentId})</p>
-          </div>
-        </header>
-
-        <nav className="tabs">
-          {studentPages.map((page) => {
-            const blocked = !canTakeAssessments && page.key !== 'dashboard';
-            return (
+        {menuOpen && (
+          <nav className="modules-sidebar">
+            {Object.entries(studentModules).map(([moduleKey, module]) => (
               <button
-                key={page.key}
+                key={moduleKey}
                 type="button"
-                onClick={() => goToPage(page.key)}
-                disabled={blocked}
-                className={activePage === page.key ? 'active' : ''}
-                title={blocked ? 'Consent required first' : ''}
+                className={`module-button ${activeModule === moduleKey ? 'active' : ''} ${moduleKey}`}
+                onClick={() => {
+                  goToModule(moduleKey);
+                  setMenuOpen(false);
+                }}
+                title={module.label}
               >
-                {page.label}
+                {module.label}
               </button>
-            );
-          })}
-        </nav>
+            ))}
+          </nav>
+        )}
 
-        {showConsentModal ? (
-          <div className="modal-backdrop" role="dialog" aria-modal="true" aria-label="Consent Required">
-            <section className="modal-card">
-              <div className="modal-header"><h2>Digital Informed Consent (Required)</h2></div>
-              <div className="modal-body">
-                <p>Before using DASS-21, PHQ-9, GAD-7, or ESM Check-in, you must acknowledge digital informed consent.</p>
-                <p>You may withdraw anytime. If withdrawn, assessment access will be blocked until you consent again.</p>
-                <p>Status: <strong>{student?.consentFlag ? 'Consented' : 'Not Consented'}</strong></p>
-                <div className="row">
-                  <button type="button" onClick={() => submitConsent(true)} disabled={loading}>I Consent</button>
-                  <button type="button" className="muted-btn" onClick={() => submitConsent(false)} disabled={loading}>Withdraw Consent</button>
-                </div>
+        <div className="content-area">
+          <header className="topbar card">
+            <div>
+              <h1>Student Wellbeing Assessment</h1>
+              <p>{student?.name} ({student?.studentId})</p>
+            </div>
+          </header>
+
+          {activeModule && (
+            <nav className="module-pages-nav card">
+              <div className="pages-header">
+                <h2>{studentModules[activeModule]?.label}</h2>
               </div>
-            </section>
-          </div>
-        ) : null}
+              <div className="pages-list">
+                {studentModules[activeModule]?.pages.map((page) => {
+                  const blocked = !canTakeAssessments && page.key !== 'dashboard' && page.key !== 'book-appointment' && page.key !== 'emergency-contacts' && page.key !== 'my-appointments';
+                  return (
+                    <button
+                      key={page.key}
+                      type="button"
+                      onClick={() => goToPage(page.key)}
+                      disabled={blocked}
+                      className={`page-item ${activePage === page.key ? 'active' : ''}`}
+                      title={blocked ? 'Consent required first' : ''}
+                    >
+                      {page.label}
+                    </button>
+                  );
+                })}
+              </div>
+            </nav>
+          )}
 
-        {activePage === 'dass21' ? (
-          <section className="card">
-            <h2>DASS-21</h2>
-            {!canTakeAssessments ? <p className="error">Consent required before DASS-21.</p> : null}
+          {showConsentModal ? (
+            <div className="modal-backdrop" role="dialog" aria-modal="true" aria-label="Consent Required">
+              <section className="modal-card">
+                <div className="modal-header"><h2>Digital Informed Consent (Required)</h2></div>
+                <div className="modal-body">
+                  <p>Before using DASS-21, PHQ-9, GAD-7, or ESM Check-in, you must acknowledge digital informed consent.</p>
+                  <p>You may withdraw anytime. If withdrawn, assessment access will be blocked until you consent again.</p>
+                  <p>Status: <strong>{student?.consentFlag ? 'Consented' : 'Not Consented'}</strong></p>
+                  <div className="row">
+                    <button type="button" onClick={() => submitConsent(true)} disabled={loading}>I Consent</button>
+                    <button type="button" className="muted-btn" onClick={() => submitConsent(false)} disabled={loading}>Withdraw Consent</button>
+                  </div>
+                </div>
+              </section>
+            </div>
+          ) : null}
+
+          {activePage === 'dass21' ? (
+            <section className="card">
+              <h2>DASS-21</h2>
+              {!canTakeAssessments ? <p className="error">Consent required before DASS-21.</p> : null}
             <p>21 items, each scored 0-3.</p>
             <button type="button" onClick={loadQuestionsIfNeeded} disabled={loading || !canTakeAssessments}>{questions.length ? 'Reload Questions' : 'Load Questions'}</button>
             <div className="question-list">
@@ -671,12 +1076,12 @@ export default function App() {
             </div>
             <button type="button" onClick={submitDass} disabled={!canTakeAssessments || loading || Object.keys(dassAnswers).length !== 21}>{loading ? 'Submitting...' : 'Submit DASS-21'}</button>
             {lastDassResult ? <p>Latest risk result: <span className={riskClassName(lastDassResult.riskLevel)}>{lastDassResult.riskLevel}</span></p> : null}
-          </section>
-        ) : null}
+            </section>
+          ) : null}
 
-        {activePage === 'phq9' ? (
-          <section className="card">
-            <h2>PHQ-9 (Patient Health Questionnaire)</h2>
+          {activePage === 'phq9' ? (
+            <section className="card">
+              <h2>PHQ-9 (Patient Health Questionnaire)</h2>
             {!canTakeAssessments ? <p className="error">Consent required before PHQ-9.</p> : null}
             <p>Over the last 2 weeks, how often have you been bothered by each of the following problems?</p>
             <div className="form-grid">
@@ -703,11 +1108,11 @@ export default function App() {
               ))}
             </div>
             <button type="button" onClick={submitPhq9} disabled={!canTakeAssessments || loading || Object.keys(phq9).length !== 9}>{loading ? 'Submitting...' : 'Submit PHQ-9'}</button>
-            {lastPhq9Result ? <p>Depression Risk: <span className={riskClassName(lastPhq9Result.riskLevel)}>{lastPhq9Result.riskLevel}</span></p> : null}
-          </section>
-        ) : null}
+              {lastPhq9Result ? <p>Depression Risk: <span className={riskClassName(lastPhq9Result.riskLevel)}>{lastPhq9Result.riskLevel}</span></p> : null}
+            </section>
+          ) : null}
 
-        {activePage === 'gad7' ? (
+          {activePage === 'gad7' ? (
           <section className="card">
             <h2>GAD-7 (Generalized Anxiety Disorder)</h2>
             {!canTakeAssessments ? <p className="error">Consent required before GAD-7.</p> : null}
@@ -734,11 +1139,11 @@ export default function App() {
               ))}
             </div>
             <button type="button" onClick={submitGad7} disabled={!canTakeAssessments || loading || Object.keys(gad7).length !== 7}>{loading ? 'Submitting...' : 'Submit GAD-7'}</button>
-            {lastGad7Result ? <p>Anxiety Risk: <span className={riskClassName(lastGad7Result.riskLevel)}>{lastGad7Result.riskLevel}</span></p> : null}
-          </section>
-        ) : null}
+              {lastGad7Result ? <p>Anxiety Risk: <span className={riskClassName(lastGad7Result.riskLevel)}>{lastGad7Result.riskLevel}</span></p> : null}
+            </section>
+          ) : null}
 
-        {activePage === 'esm-checkin' ? (
+          {activePage === 'esm-checkin' ? (
           <section className="card">
             <h2>ESM Check-in</h2>
             {!canTakeAssessments ? <p className="error">Consent required before ESM.</p> : null}
@@ -784,8 +1189,158 @@ export default function App() {
           </section>
         ) : null}
 
+        {activePage === 'book-appointment' ? (
+          <section className="card">
+            <h2>Book an Appointment with OGC</h2>
+            <p>Find available counseling slots and book your appointment.</p>
+            {availableSlots.length === 0 && !loading ? <p className="info-message">Loading available slots...</p> : null}
+            
+            {availableSlots.length > 0 ? (
+              <>
+                <h3>Available Slots</h3>
+                <div className="ogc-table-wrap">
+                  <table className="ogc-table">
+                    <thead>
+                      <tr>
+                        <th>Date</th>
+                        <th>Time</th>
+                        <th>Facilitator</th>
+                        <th>Action</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {availableSlots.map((slot) => (
+                        <tr key={slot.slotId}>
+                          <td>{slot.slotDate}</td>
+                          <td>{slot.startTime} - {slot.endTime}</td>
+                          <td>{slot.facilitatorName}</td>
+                          <td>
+                            <button type="button" className="success-btn" onClick={() => {
+                              const isAlreadyBooked = studentAppointments.some(a => a.slotId === slot.slotId && ['Requested', 'Approved'].includes(a.status));
+                              if (isAlreadyBooked) {
+                                setError('You already have an active appointment for this slot.');
+                                return;
+                              }
+                              if (!window.confirm(`Book appointment on ${slot.slotDate} from ${slot.startTime} to ${slot.endTime}?`)) return;
+                              run(async () => {
+                                await api.bookAppointment({ slotId: slot.slotId }, token);
+                                setInfo('Appointment booked successfully!');
+                                setAvailableSlots([]);
+                                const data = await api.getStudentAppointments(token);
+                                setStudentAppointments(data.appointments || []);
+                              });
+                            }} disabled={loading}>Book</button>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </>
+            ) : availableSlots.length === 0 && !loading ? (
+              <p className="hint">No slots loaded. Click "View Available Slots" to load them.</p>
+            ) : null}
+          </section>
+        ) : null}
+
+        {activePage === 'my-appointments' ? (
+          <section className="card">
+            <h2>My Appointments</h2>
+            <p>View and manage your counseling appointments.</p>
+            {studentAppointments.length === 0 && !loading ? <p className="info-message">Loading your appointments...</p> : null}
+            
+            {studentAppointments.length > 0 ? (
+              <>
+                <h3>Your Appointments</h3>
+                <div className="ogc-table-wrap">
+                  <table className="ogc-table">
+                    <thead>
+                      <tr>
+                        <th>Date</th>
+                        <th>Time</th>
+                        <th>Status</th>
+                        <th>Requested</th>
+                        <th>Action</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {studentAppointments.map((appt) => (
+                        <tr key={appt.appointmentId}>
+                          <td>{appt.slotDate || '-'}</td>
+                          <td>{appt.startTime || '-'} {appt.endTime ? `- ${appt.endTime}` : ''}</td>
+                          <td><span className={`status-${appt.status.toLowerCase()}`}>{appt.status}</span></td>
+                          <td>{new Date(appt.requestedAt).toLocaleString()}</td>
+                          <td>
+                            {appt.status === 'Requested' && (
+                              <button type="button" className="danger-btn" onClick={() => {
+                                if (!window.confirm('Cancel this appointment?')) return;
+                                run(async () => {
+                                  await api.cancelAppointment(appt.appointmentId, token);
+                                  setInfo('Appointment cancelled');
+                                  setStudentAppointments(studentAppointments.filter(a => a.appointmentId !== appt.appointmentId));
+                                });
+                              }} disabled={loading}>Cancel</button>
+                            )}
+                            {appt.status !== 'Requested' && <span className="hint">Cannot cancel {appt.status.toLowerCase()}</span>}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </>
+            ) : studentAppointments.length === 0 && !loading ? (
+              <p className="hint">No appointments yet. Click "Load My Appointments" to check.</p>
+            ) : null}
+          </section>
+        ) : null}
+
+        {activePage === 'emergency-contacts' ? (
+          <section className="card">
+            <h2>Emergency Contacts & Hotlines</h2>
+            <p>Access immediate mental health support and emergency services.</p>
+            {emergencyContacts.length === 0 && !loading ? <p className="info-message">Loading emergency contacts...</p> : null}
+            
+            {emergencyContacts.length > 0 ? (
+              <div className="contacts-grid">
+                {emergencyContacts.map((contact) => (
+                  <article key={contact.contactId} className="contact-card">
+                    <div className="contact-header">
+                      <h3>{contact.name}</h3>
+                      {contact.available24_7 && <span className="badge">24/7</span>}
+                    </div>
+                    <p><strong>Type:</strong> {contact.contactType}</p>
+                    {contact.phone && <p><strong>Phone:</strong> <a href={`tel:${contact.phone}`}>{contact.phone}</a></p>}
+                    {contact.email && <p><strong>Email:</strong> <a href={`mailto:${contact.email}`}>{contact.email}</a></p>}
+                    <p><strong>Priority:</strong> <span className={`priority-${contact.priority}`}>{contact.priority}</span></p>
+                  </article>
+                ))}
+              </div>
+            ) : emergencyContacts.length === 0 && !loading ? (
+              <p className="hint">Click "View Emergency Contacts" to load the list.</p>
+            ) : null}
+          </section>
+        ) : null}
+
+        {activePage === 'wellness-resources' ? (
+          <section className="card">
+            <h2>Wellness Resources & Psychoeducation</h2>
+            <p>Access self-help content, coping strategies, and wellness materials.</p>
+            <p className="hint">⚠️ GINHAWA module coming soon. This feature is under development.</p>
+          </section>
+        ) : null}
+
+        {activePage === 'safety-plan' ? (
+          <section className="card">
+            <h2>Digital Safety Plan</h2>
+            <p>Create and manage your personal crisis planning and safety strategies.</p>
+            <p className="hint">⚠️ Safety planning feature coming soon. This feature is under development.</p>
+          </section>
+        ) : null}
+
         {error ? <p className="error global-error">{error}</p> : null}
         {info ? <p>{info}</p> : null}
+        </div>
       </main>
 
       <footer className="inst-footer">� {new Date().getFullYear()} Batangas State University � SPARTAN-G Student Wellbeing Portal</footer>

@@ -936,6 +936,430 @@ app.post('/api/ogc/contact', auth, requireRole('ogc'), async (req, res) => {
   });
 });
 
+// GABAY MODULE - Availability Slots (OGC only)
+
+app.post('/api/ogc/availability/create', auth, requireRole('ogc'), async (req, res) => {
+  const { slotDate, startTime, endTime, maxSlots = 1 } = req.body || {};
+  if (!slotDate || !startTime || !endTime) {
+    return res.status(400).json({ success: false, message: 'slotDate, startTime, endTime are required.' });
+  }
+
+  const db = await readDb();
+  const slot = {
+    slotId: db.counters.slotId++,
+    facilitatorId: req.user.facilitatorId,
+    slotDate,
+    startTime,
+    endTime,
+    maxSlots: Number(maxSlots),
+    bookedCount: 0,
+    status: 'Available',
+    createdAt: nowIso()
+  };
+
+  db.availabilitySlots.push(slot);
+  await writeDb(db);
+
+  return res.status(201).json({
+    success: true,
+    data: {
+      message: 'Availability slot created successfully.',
+      slot
+    }
+  });
+});
+
+app.get('/api/ogc/availability/list', auth, requireRole('ogc'), async (req, res) => {
+  const db = await readDb();
+  const slots = db.availabilitySlots.filter((s) => Number(s.facilitatorId) === Number(req.user.facilitatorId));
+
+  return res.json({
+    success: true,
+    data: {
+      totalSlots: slots.length,
+      slots
+    }
+  });
+});
+
+app.delete('/api/ogc/availability/:slotId', auth, requireRole('ogc'), async (req, res) => {
+  const slotId = Number(req.params.slotId);
+  const db = await readDb();
+  const slotIndex = db.availabilitySlots.findIndex(
+    (s) => s.slotId === slotId && Number(s.facilitatorId) === Number(req.user.facilitatorId)
+  );
+
+  if (slotIndex === -1) {
+    return res.status(404).json({ success: false, message: 'Slot not found or you lack permission.' });
+  }
+
+  const hasBookings = db.appointments.some((a) => a.slotId === slotId && a.status !== 'Cancelled');
+  if (hasBookings) {
+    return res.status(400).json({ success: false, message: 'Cannot delete slot with active bookings.' });
+  }
+
+  db.availabilitySlots.splice(slotIndex, 1);
+  await writeDb(db);
+
+  return res.json({
+    success: true,
+    data: { message: 'Availability slot deleted successfully.' }
+  });
+});
+
+// GABAY MODULE - Appointments (Student)
+
+app.get('/api/student/appointments/available', auth, requireRole('student'), async (req, res) => {
+  const db = await readDb();
+  const today = todayDate();
+
+  const availableSlots = db.availabilitySlots
+    .filter((s) => s.slotDate >= today && s.status === 'Available' && s.bookedCount < s.maxSlots)
+    .map((s) => ({
+      slotId: s.slotId,
+      facilitatorId: s.facilitatorId,
+      slotDate: s.slotDate,
+      startTime: s.startTime,
+      endTime: s.endTime,
+      facilitatorName: db.facilitators.find((f) => f.facilitatorId === s.facilitatorId)?.name || 'Unknown'
+    }))
+    .sort((a, b) => a.slotDate.localeCompare(b.slotDate) || a.startTime.localeCompare(b.startTime));
+
+  return res.json({
+    success: true,
+    data: {
+      availableSlots
+    }
+  });
+});
+
+app.post('/api/student/appointments/book', auth, requireRole('student'), async (req, res) => {
+  const { slotId, studentNotes = '' } = req.body || {};
+  if (!slotId) {
+    return res.status(400).json({ success: false, message: 'slotId is required.' });
+  }
+
+  const db = await readDb();
+  const slot = db.availabilitySlots.find((s) => s.slotId === slotId);
+  if (!slot) {
+    return res.status(404).json({ success: false, message: 'Slot not found.' });
+  }
+
+  if (slot.bookedCount >= slot.maxSlots) {
+    return res.status(400).json({ success: false, message: 'Slot is full.' });
+  }
+
+  const hasConflict = db.appointments.some(
+    (a) => a.studentId === req.user.studentId && a.appointmentDate === slot.slotDate && a.status !== 'Cancelled'
+  );
+  if (hasConflict) {
+    return res.status(400).json({ success: false, message: 'You already have an appointment on this date.' });
+  }
+
+  const appointment = {
+    appointmentId: db.counters.appointmentId++,
+    studentId: req.user.studentId,
+    facilitatorId: slot.facilitatorId,
+    slotId,
+    appointmentDate: slot.slotDate,
+    appointmentTime: slot.startTime,
+    status: 'Requested',
+    studentNotes: studentNotes || null,
+    ogcNotes: null,
+    rejectionReason: null,
+    requestedAt: nowIso(),
+    approvedAt: null,
+    rejectedAt: null,
+    completedAt: null
+  };
+
+  slot.bookedCount += 1;
+  if (slot.bookedCount >= slot.maxSlots) {
+    slot.status = 'Full';
+  }
+
+  db.appointments.push(appointment);
+  await writeDb(db);
+
+  return res.status(201).json({
+    success: true,
+    data: {
+      message: 'Appointment booking requested successfully.',
+      appointment
+    }
+  });
+});
+
+app.get('/api/student/appointments', auth, requireRole('student'), async (req, res) => {
+  const db = await readDb();
+  const appointments = db.appointments
+    .filter((a) => a.studentId === req.user.studentId)
+    .map((a) => {
+      const facilitator = db.facilitators.find((f) => f.facilitatorId === a.facilitatorId);
+      return {
+        ...a,
+        facilitatorName: facilitator?.name || 'Unknown',
+        facilitatorEmail: facilitator?.email || null
+      };
+    });
+
+  return res.json({
+    success: true,
+    data: {
+      appointments
+    }
+  });
+});
+
+app.delete('/api/student/appointments/:appointmentId', auth, requireRole('student'), async (req, res) => {
+  const appointmentId = Number(req.params.appointmentId);
+  const db = await readDb();
+  const appointment = db.appointments.find((a) => a.appointmentId === appointmentId);
+
+  if (!appointment || appointment.studentId !== req.user.studentId) {
+    return res.status(404).json({ success: false, message: 'Appointment not found or you lack permission.' });
+  }
+
+  if (appointment.status === 'Cancelled' || appointment.status === 'Completed') {
+    return res.status(400).json({ success: false, message: `Cannot cancel a ${appointment.status} appointment.` });
+  }
+
+  const slot = db.availabilitySlots.find((s) => s.slotId === appointment.slotId);
+  if (slot) {
+    slot.bookedCount = Math.max(0, slot.bookedCount - 1);
+    if (slot.bookedCount < slot.maxSlots) {
+      slot.status = 'Available';
+    }
+  }
+
+  appointment.status = 'Cancelled';
+  await writeDb(db);
+
+  return res.json({
+    success: true,
+    data: { message: 'Appointment cancelled successfully.' }
+  });
+});
+
+// GABAY MODULE - Appointments (OGC)
+
+app.get('/api/ogc/appointments', auth, requireRole('ogc'), async (req, res) => {
+  const db = await readDb();
+  const appointments = db.appointments
+    .filter((a) => Number(a.facilitatorId) === Number(req.user.facilitatorId))
+    .map((a) => {
+      const student = db.students.find((s) => s.studentId === a.studentId);
+      return {
+        ...a,
+        studentName: student?.name || 'Unknown',
+        studentCollege: student?.college || null,
+        pseudoId: pseudonymizeStudentId(a.studentId)
+      };
+    })
+    .sort((a, b) => b.requestedAt.localeCompare(a.requestedAt));
+
+  const appointmentCounts = {
+    Requested: appointments.filter((a) => a.status === 'Requested').length,
+    Approved: appointments.filter((a) => a.status === 'Approved').length,
+    Rejected: appointments.filter((a) => a.status === 'Rejected').length,
+    Completed: appointments.filter((a) => a.status === 'Completed').length,
+    Cancelled: appointments.filter((a) => a.status === 'Cancelled').length
+  };
+
+  return res.json({
+    success: true,
+    data: {
+      totalAppointments: appointments.length,
+      appointmentCounts,
+      appointments
+    }
+  });
+});
+
+app.post('/api/ogc/appointments/:appointmentId/approve', auth, requireRole('ogc'), async (req, res) => {
+  const appointmentId = Number(req.params.appointmentId);
+  const { ogcNotes = '' } = req.body || {};
+  const db = await readDb();
+  const appointment = db.appointments.find((a) => a.appointmentId === appointmentId);
+
+  if (!appointment || Number(appointment.facilitatorId) !== Number(req.user.facilitatorId)) {
+    return res.status(404).json({ success: false, message: 'Appointment not found or you lack permission.' });
+  }
+
+  if (appointment.status !== 'Requested') {
+    return res.status(400).json({ success: false, message: `Cannot approve a ${appointment.status} appointment.` });
+  }
+
+  appointment.status = 'Approved';
+  appointment.approvedAt = nowIso();
+  appointment.ogcNotes = ogcNotes || null;
+  await writeDb(db);
+
+  return res.json({
+    success: true,
+    data: {
+      message: 'Appointment approved successfully.',
+      appointment
+    }
+  });
+});
+
+app.post('/api/ogc/appointments/:appointmentId/reject', auth, requireRole('ogc'), async (req, res) => {
+  const appointmentId = Number(req.params.appointmentId);
+  const { rejectionReason = '' } = req.body || {};
+  const db = await readDb();
+  const appointment = db.appointments.find((a) => a.appointmentId === appointmentId);
+
+  if (!appointment || Number(appointment.facilitatorId) !== Number(req.user.facilitatorId)) {
+    return res.status(404).json({ success: false, message: 'Appointment not found or you lack permission.' });
+  }
+
+  if (appointment.status !== 'Requested') {
+    return res.status(400).json({ success: false, message: `Cannot reject a ${appointment.status} appointment.` });
+  }
+
+  const slot = db.availabilitySlots.find((s) => s.slotId === appointment.slotId);
+  if (slot) {
+    slot.bookedCount = Math.max(0, slot.bookedCount - 1);
+    if (slot.bookedCount < slot.maxSlots) {
+      slot.status = 'Available';
+    }
+  }
+
+  appointment.status = 'Rejected';
+  appointment.rejectedAt = nowIso();
+  appointment.rejectionReason = rejectionReason || null;
+  await writeDb(db);
+
+  return res.json({
+    success: true,
+    data: {
+      message: 'Appointment rejected successfully.',
+      appointment
+    }
+  });
+});
+
+app.post('/api/ogc/appointments/:appointmentId/complete', auth, requireRole('ogc'), async (req, res) => {
+  const appointmentId = Number(req.params.appointmentId);
+  const { ogcNotes = '' } = req.body || {};
+  const db = await readDb();
+  const appointment = db.appointments.find((a) => a.appointmentId === appointmentId);
+
+  if (!appointment || Number(appointment.facilitatorId) !== Number(req.user.facilitatorId)) {
+    return res.status(404).json({ success: false, message: 'Appointment not found or you lack permission.' });
+  }
+
+  if (appointment.status !== 'Approved') {
+    return res.status(400).json({ success: false, message: `Can only complete Approved appointments.` });
+  }
+
+  appointment.status = 'Completed';
+  appointment.completedAt = nowIso();
+  appointment.ogcNotes = ogcNotes || null;
+  await writeDb(db);
+
+  return res.json({
+    success: true,
+    data: {
+      message: 'Appointment marked as complete.',
+      appointment
+    }
+  });
+});
+
+// GABAY MODULE - Emergency Contacts
+
+app.get('/api/emergency-contacts', async (req, res) => {
+  const db = await readDb();
+  return res.json({
+    success: true,
+    data: {
+      emergencyContacts: db.emergencyContacts
+    }
+  });
+});
+
+app.post('/api/admin/emergency-contacts', async (req, res) => {
+  const { contactType, name, description, phone, email, website, available24_7 = false, priority = 0 } = req.body || {};
+  if (!contactType || !name || !phone) {
+    return res.status(400).json({ success: false, message: 'contactType, name, phone are required.' });
+  }
+
+  const db = await readDb();
+  const contact = {
+    contactId: db.counters.contactId++,
+    contactType,
+    name,
+    description: description || null,
+    phone,
+    email: email || null,
+    website: website || null,
+    available24_7: Boolean(available24_7),
+    priority: Number(priority),
+    createdAt: nowIso()
+  };
+
+  db.emergencyContacts.push(contact);
+  await writeDb(db);
+
+  return res.status(201).json({
+    success: true,
+    data: {
+      message: 'Emergency contact created successfully.',
+      contact
+    }
+  });
+});
+
+app.put('/api/admin/emergency-contacts/:contactId', async (req, res) => {
+  const contactId = Number(req.params.contactId);
+  const { contactType, name, description, phone, email, website, available24_7, priority } = req.body || {};
+  const db = await readDb();
+  const contact = db.emergencyContacts.find((c) => c.contactId === contactId);
+
+  if (!contact) {
+    return res.status(404).json({ success: false, message: 'Emergency contact not found.' });
+  }
+
+  if (contactType) contact.contactType = contactType;
+  if (name) contact.name = name;
+  if (description !== undefined) contact.description = description;
+  if (phone) contact.phone = phone;
+  if (email !== undefined) contact.email = email;
+  if (website !== undefined) contact.website = website;
+  if (available24_7 !== undefined) contact.available24_7 = Boolean(available24_7);
+  if (priority !== undefined) contact.priority = Number(priority);
+
+  await writeDb(db);
+
+  return res.json({
+    success: true,
+    data: {
+      message: 'Emergency contact updated successfully.',
+      contact
+    }
+  });
+});
+
+app.delete('/api/admin/emergency-contacts/:contactId', async (req, res) => {
+  const contactId = Number(req.params.contactId);
+  const db = await readDb();
+  const index = db.emergencyContacts.findIndex((c) => c.contactId === contactId);
+
+  if (index === -1) {
+    return res.status(404).json({ success: false, message: 'Emergency contact not found.' });
+  }
+
+  db.emergencyContacts.splice(index, 1);
+  await writeDb(db);
+
+  return res.json({
+    success: true,
+    data: { message: 'Emergency contact deleted successfully.' }
+  });
+});
+
 app.listen(PORT, () => {
   console.log(`SPARTAN-G backend running on http://localhost:${PORT}`);
 });

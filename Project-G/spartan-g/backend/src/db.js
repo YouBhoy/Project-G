@@ -107,6 +107,52 @@ db.exec(`
     FOREIGN KEY (facilitator_id) REFERENCES facilitators(facilitator_id) ON UPDATE CASCADE ON DELETE CASCADE,
     FOREIGN KEY (classification_id) REFERENCES risk_classifications(classification_id) ON UPDATE CASCADE ON DELETE CASCADE
   );
+
+  CREATE TABLE IF NOT EXISTS availability_slots (
+    slot_id INTEGER PRIMARY KEY AUTOINCREMENT,
+    facilitator_id INTEGER NOT NULL,
+    slot_date TEXT NOT NULL,
+    start_time TEXT NOT NULL,
+    end_time TEXT NOT NULL,
+    max_slots INTEGER NOT NULL DEFAULT 1,
+    booked_count INTEGER NOT NULL DEFAULT 0,
+    status TEXT NOT NULL CHECK (status IN ('Available', 'Full', 'Blocked')) DEFAULT 'Available',
+    created_at TEXT NOT NULL,
+    FOREIGN KEY (facilitator_id) REFERENCES facilitators(facilitator_id) ON UPDATE CASCADE ON DELETE CASCADE
+  );
+
+  CREATE TABLE IF NOT EXISTS appointments (
+    appointment_id INTEGER PRIMARY KEY AUTOINCREMENT,
+    student_id TEXT NOT NULL,
+    facilitator_id INTEGER NOT NULL,
+    slot_id INTEGER NOT NULL,
+    appointment_date TEXT NOT NULL,
+    appointment_time TEXT NOT NULL,
+    status TEXT NOT NULL CHECK (status IN ('Requested', 'Approved', 'Rejected', 'Completed', 'Cancelled')) DEFAULT 'Requested',
+    student_notes TEXT,
+    ogc_notes TEXT,
+    rejection_reason TEXT,
+    requested_at TEXT NOT NULL,
+    approved_at TEXT,
+    rejected_at TEXT,
+    completed_at TEXT,
+    FOREIGN KEY (student_id) REFERENCES students(student_id) ON UPDATE CASCADE ON DELETE CASCADE,
+    FOREIGN KEY (facilitator_id) REFERENCES facilitators(facilitator_id) ON UPDATE CASCADE ON DELETE CASCADE,
+    FOREIGN KEY (slot_id) REFERENCES availability_slots(slot_id) ON UPDATE CASCADE ON DELETE CASCADE
+  );
+
+  CREATE TABLE IF NOT EXISTS emergency_contacts (
+    contact_id INTEGER PRIMARY KEY AUTOINCREMENT,
+    contact_type TEXT NOT NULL CHECK (contact_type IN ('Hotline', 'Campus Service', 'Emergency Service', 'Mental Health Service')),
+    name TEXT NOT NULL,
+    description TEXT,
+    phone TEXT NOT NULL,
+    email TEXT,
+    website TEXT,
+    available_24_7 INTEGER NOT NULL DEFAULT 0,
+    priority INTEGER NOT NULL DEFAULT 0,
+    created_at TEXT NOT NULL
+  );
 `);
 
 const facilitatorColumns = db.prepare('PRAGMA table_info(facilitators)').all();
@@ -132,7 +178,10 @@ function defaultDb() {
       esmEntryId: 1,
       classificationId: 1,
       actionId: 1,
-      notifId: 1
+      notifId: 1,
+      slotId: 1,
+      appointmentId: 1,
+      contactId: 1
     },
     students: [],
     assessmentCycles: [],
@@ -141,6 +190,9 @@ function defaultDb() {
     esmEntries: [],
     riskClassifications: [],
     referralActions: [],
+    availabilitySlots: [],
+    appointments: [],
+    emergencyContacts: [],
     facilitators: [
       {
         facilitatorId: DEFAULT_FACILITATOR.facilitator_id,
@@ -447,6 +499,48 @@ export function readDb() {
     message: row.message
   }));
 
+  snapshot.availabilitySlots = db.prepare('SELECT * FROM availability_slots ORDER BY slot_id').all().map((row) => ({
+    slotId: row.slot_id,
+    facilitatorId: row.facilitator_id,
+    slotDate: row.slot_date,
+    startTime: row.start_time,
+    endTime: row.end_time,
+    maxSlots: Number(row.max_slots),
+    bookedCount: Number(row.booked_count),
+    status: row.status,
+    createdAt: row.created_at
+  }));
+
+  snapshot.appointments = db.prepare('SELECT * FROM appointments ORDER BY appointment_id').all().map((row) => ({
+    appointmentId: row.appointment_id,
+    studentId: row.student_id,
+    facilitatorId: row.facilitator_id,
+    slotId: row.slot_id,
+    appointmentDate: row.appointment_date,
+    appointmentTime: row.appointment_time,
+    status: row.status,
+    studentNotes: row.student_notes,
+    ogcNotes: row.ogc_notes,
+    rejectionReason: row.rejection_reason,
+    requestedAt: row.requested_at,
+    approvedAt: row.approved_at,
+    rejectedAt: row.rejected_at,
+    completedAt: row.completed_at
+  }));
+
+  snapshot.emergencyContacts = db.prepare('SELECT * FROM emergency_contacts ORDER BY priority DESC, contact_id').all().map((row) => ({
+    contactId: row.contact_id,
+    contactType: row.contact_type,
+    name: row.name,
+    description: row.description,
+    phone: row.phone,
+    email: row.email,
+    website: row.website,
+    available24_7: toBool(row.available_24_7),
+    priority: Number(row.priority),
+    createdAt: row.created_at
+  }));
+
   snapshot.counters = {
     cycleId: nextId('assessment_cycles', 'cycle_id'),
     assessmentId: nextId('assessments', 'assessment_id'),
@@ -454,7 +548,10 @@ export function readDb() {
     esmEntryId: nextId('esm_entries', 'entry_id'),
     classificationId: nextId('risk_classifications', 'classification_id'),
     actionId: nextId('referral_actions', 'action_id'),
-    notifId: nextId('notifications', 'notif_id')
+    notifId: nextId('notifications', 'notif_id'),
+    slotId: nextId('availability_slots', 'slot_id'),
+    appointmentId: nextId('appointments', 'appointment_id'),
+    contactId: nextId('emergency_contacts', 'contact_id')
   };
 
   if (snapshot.facilitators.length === 0) {
@@ -477,6 +574,8 @@ export function writeDb(snapshot) {
     try {
       for (const tableName of [
         'notifications',
+        'appointments',
+        'availability_slots',
         'referral_actions',
         'risk_classifications',
         'esm_entries',
@@ -524,6 +623,18 @@ export function writeDb(snapshot) {
       const insertNotification = db.prepare(`
         INSERT INTO notifications (notif_id, facilitator_id, classification_id, anonymized_flag, sent_at, message)
         VALUES (@notif_id, @facilitator_id, @classification_id, @anonymized_flag, @sent_at, @message)
+      `);
+      const insertSlot = db.prepare(`
+        INSERT INTO availability_slots (slot_id, facilitator_id, slot_date, start_time, end_time, max_slots, booked_count, status, created_at)
+        VALUES (@slot_id, @facilitator_id, @slot_date, @start_time, @end_time, @max_slots, @booked_count, @status, @created_at)
+      `);
+      const insertAppointment = db.prepare(`
+        INSERT INTO appointments (appointment_id, student_id, facilitator_id, slot_id, appointment_date, appointment_time, status, student_notes, ogc_notes, rejection_reason, requested_at, approved_at, rejected_at, completed_at)
+        VALUES (@appointment_id, @student_id, @facilitator_id, @slot_id, @appointment_date, @appointment_time, @status, @student_notes, @ogc_notes, @rejection_reason, @requested_at, @approved_at, @rejected_at, @completed_at)
+      `);
+      const insertContact = db.prepare(`
+        INSERT INTO emergency_contacts (contact_id, contact_type, name, description, phone, email, website, available_24_7, priority, created_at)
+        VALUES (@contact_id, @contact_type, @name, @description, @phone, @email, @website, @available_24_7, @priority, @created_at)
       `);
 
       for (const student of state.students || []) {
@@ -623,6 +734,54 @@ export function writeDb(snapshot) {
           anonymized_flag: fromBool(notification.anonymizedFlag),
           sent_at: notification.sentAt,
           message: notification.message
+        });
+      }
+
+      for (const slot of state.availabilitySlots || []) {
+        insertSlot.run({
+          slot_id: slot.slotId,
+          facilitator_id: slot.facilitatorId,
+          slot_date: slot.slotDate,
+          start_time: slot.startTime,
+          end_time: slot.endTime,
+          max_slots: slot.maxSlots,
+          booked_count: slot.bookedCount,
+          status: slot.status,
+          created_at: slot.createdAt
+        });
+      }
+
+      for (const appointment of state.appointments || []) {
+        insertAppointment.run({
+          appointment_id: appointment.appointmentId,
+          student_id: appointment.studentId,
+          facilitator_id: appointment.facilitatorId,
+          slot_id: appointment.slotId,
+          appointment_date: appointment.appointmentDate,
+          appointment_time: appointment.appointmentTime,
+          status: appointment.status,
+          student_notes: appointment.studentNotes || null,
+          ogc_notes: appointment.ogcNotes || null,
+          rejection_reason: appointment.rejectionReason || null,
+          requested_at: appointment.requestedAt,
+          approved_at: appointment.approvedAt || null,
+          rejected_at: appointment.rejectedAt || null,
+          completed_at: appointment.completedAt || null
+        });
+      }
+
+      for (const contact of state.emergencyContacts || []) {
+        insertContact.run({
+          contact_id: contact.contactId,
+          contact_type: contact.contactType,
+          name: contact.name,
+          description: contact.description || null,
+          phone: contact.phone,
+          email: contact.email || null,
+          website: contact.website || null,
+          available_24_7: fromBool(contact.available24_7),
+          priority: contact.priority,
+          created_at: contact.createdAt
         });
       }
 
