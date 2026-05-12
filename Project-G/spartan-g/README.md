@@ -29,7 +29,7 @@ MYSQL_PASSWORD=
 MYSQL_DATABASE=spartan_g
 ```
 
-The backend will then read and write against MySQL instead of the SQLite file.
+The backend will then read and write against MySQL in XAMPP.
 
 ### 2) Student Portal
 
