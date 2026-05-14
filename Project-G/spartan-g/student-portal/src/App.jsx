@@ -1,5 +1,9 @@
 import { useEffect, useMemo, useState } from 'react';
 import { api } from './api.js';
+import BookAppointment from './components/student/BookAppointment.jsx';
+import ManageAppointments from './components/facilitator/ManageAppointments.jsx';
+import ManageSlots from './components/facilitator/ManageSlots.jsx';
+import MyAppointments from './components/student/MyAppointments.jsx';
 
 const studentModules = {
   gawa: {
@@ -808,60 +812,7 @@ export default function App() {
 
                 {/* Slots Tab */}
                 {ogcTab === 'slots' && (
-                  <>
-                    <article className="summary-card full-width">
-                      <h3>Manage Availability Slots</h3>
-                      <form className="form-row" onSubmit={(e) => { e.preventDefault(); }}>
-                        <div className="form-group">
-                          <label htmlFor="slot-date">Date</label>
-                          <input type="date" id="slot-date" />
-                        </div>
-                        <div className="form-group">
-                          <label htmlFor="slot-start">Start Time</label>
-                          <input type="time" id="slot-start" />
-                        </div>
-                        <div className="form-group">
-                          <label htmlFor="slot-end">End Time</label>
-                          <input type="time" id="slot-end" />
-                        </div>
-                        <div className="form-group">
-                          <label htmlFor="slot-duration">Duration (minutes)</label>
-                          <input type="number" id="slot-duration" min="15" step="15" defaultValue="30" />
-                        </div>
-                        <button type="submit">Add Slot</button>
-                      </form>
-
-                      <h4 style={{ marginTop: '2rem' }}>Available Slots</h4>
-                      {ogcAvailabilitySlots?.length ? (
-                        <div className="ogc-table-wrap">
-                          <table className="ogc-table">
-                            <thead>
-                              <tr>
-                                <th>Date</th>
-                                <th>Start Time</th>
-                                <th>End Time</th>
-                                <th>Duration</th>
-                                <th>Status</th>
-                                <th>Action</th>
-                              </tr>
-                            </thead>
-                            <tbody>
-                              {ogcAvailabilitySlots.map((slot, idx) => (
-                                <tr key={idx}>
-                                  <td>{slot.date}</td>
-                                  <td>{slot.startTime}</td>
-                                  <td>{slot.endTime}</td>
-                                  <td>{slot.duration} min</td>
-                                  <td>{slot.isBooked ? 'Booked' : 'Available'}</td>
-                                  <td><button type="button" className="muted-btn">Edit</button> <button type="button" className="muted-btn">Delete</button></td>
-                                </tr>
-                              ))}
-                            </tbody>
-                          </table>
-                        </div>
-                      ) : <p>No availability slots set yet.</p>}
-                    </article>
-                  </>
+                  <ManageSlots facilitator={facilitator} />
                 )}
 
                 {/* Appointments Tab */}
@@ -979,37 +930,7 @@ export default function App() {
             )}
 
             {ogcTab === 'slots' && (
-              <>
-                <h2>Manage Availability Slots</h2>
-                <p>Create time slots for students to book counseling appointments.</p>
-                <div className="form-group">
-                  <input type="date" placeholder="Slot Date" id="slot-date" />
-                  <input type="time" placeholder="Start Time" id="slot-start" />
-                  <input type="time" placeholder="End Time" id="slot-end" />
-                  <input type="number" placeholder="Max Slots" defaultValue="5" id="slot-max" min="1" />
-                  <button type="button" onClick={() => run(async () => {
-                    const date = document.getElementById('slot-date').value;
-                    const start = document.getElementById('slot-start').value;
-                    const end = document.getElementById('slot-end').value;
-                    const max = parseInt(document.getElementById('slot-max').value, 10);
-                    if (!date || !start || !end) { setError('All fields required'); return; }
-                    const result = await api.createAvailabilitySlot({ slotDate: date, startTime: start, endTime: end, maxSlots: max }, token);
-                    setInfo(`Slot created: ${result.slotId}`);
-                  })} disabled={loading}>Create Slot</button>
-                </div>
-                <h3>Your Availability Slots</h3>
-                {ogcAvailabilitySlots.length === 0 && !loading ? <p className="info-message">Loading availability slots...</p> : null}
-                {ogcAvailabilitySlots.length ? (
-                  <div className="ogc-table-wrap"><table className="ogc-table"><thead><tr><th>Date</th><th>Start</th><th>End</th><th>Capacity</th><th>Booked</th><th>Status</th><th>Action</th></tr></thead><tbody>{ogcAvailabilitySlots.map((slot) => (<tr key={slot.slotId}><td>{slot.slotDate}</td><td>{slot.startTime}</td><td>{slot.endTime}</td><td>{slot.maxSlots}</td><td>{slot.bookedCount}</td><td>{slot.status}</td><td><button type="button" className="danger-btn" onClick={() => {
-                    if (!window.confirm(`Delete slot on ${slot.slotDate}?`)) return;
-                    run(async () => {
-                      await api.deleteAvailabilitySlot(slot.slotId, token);
-                      setInfo('Slot deleted');
-                      setOgcAvailabilitySlots(ogcAvailabilitySlots.filter(s => s.slotId !== slot.slotId));
-                    });
-                  }} disabled={loading}>Delete</button></td></tr>))}</tbody></table></div>
-                ) : <p>No slots created yet.</p>}
-              </>
+              <ManageSlots facilitator={facilitator} />
             )}
 
             {ogcTab === 'appointments' && (
@@ -1422,109 +1343,11 @@ export default function App() {
         ) : null}
 
         {activePage === 'book-appointment' ? (
-          <section className="card">
-            <h2>Book an Appointment with OGC</h2>
-            <p>Find available counseling slots and book your appointment.</p>
-            {availableSlots.length === 0 && !loading ? <p className="info-message">Loading available slots...</p> : null}
-            
-            {availableSlots.length > 0 ? (
-              <>
-                <h3>Available Slots</h3>
-                <div className="ogc-table-wrap">
-                  <table className="ogc-table">
-                    <thead>
-                      <tr>
-                        <th>Date</th>
-                        <th>Time</th>
-                        <th>Facilitator</th>
-                        <th>Action</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {availableSlots.map((slot) => (
-                        <tr key={slot.slotId}>
-                          <td>{slot.slotDate}</td>
-                          <td>{slot.startTime} - {slot.endTime}</td>
-                          <td>{slot.facilitatorName}</td>
-                          <td>
-                            <button type="button" className="success-btn" onClick={() => {
-                              const isAlreadyBooked = studentAppointments.some(a => a.slotId === slot.slotId && ['Requested', 'Approved'].includes(a.status));
-                              if (isAlreadyBooked) {
-                                setError('You already have an active appointment for this slot.');
-                                return;
-                              }
-                              if (!window.confirm(`Book appointment on ${slot.slotDate} from ${slot.startTime} to ${slot.endTime}?`)) return;
-                              run(async () => {
-                                await api.bookAppointment({ slotId: slot.slotId }, token);
-                                setInfo('Appointment booked successfully!');
-                                setAvailableSlots([]);
-                                const data = await api.getStudentAppointments(token);
-                                setStudentAppointments(data.appointments || []);
-                              });
-                            }} disabled={loading}>Book</button>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              </>
-            ) : availableSlots.length === 0 && !loading ? (
-              <p className="hint">No slots loaded. Click "View Available Slots" to load them.</p>
-            ) : null}
-          </section>
+          <BookAppointment student={student} />
         ) : null}
 
         {activePage === 'my-appointments' ? (
-          <section className="card">
-            <h2>My Appointments</h2>
-            <p>View and manage your counseling appointments.</p>
-            {studentAppointments.length === 0 && !loading ? <p className="info-message">Loading your appointments...</p> : null}
-            
-            {studentAppointments.length > 0 ? (
-              <>
-                <h3>Your Appointments</h3>
-                <div className="ogc-table-wrap">
-                  <table className="ogc-table">
-                    <thead>
-                      <tr>
-                        <th>Date</th>
-                        <th>Time</th>
-                        <th>Status</th>
-                        <th>Requested</th>
-                        <th>Action</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {studentAppointments.map((appt) => (
-                        <tr key={appt.appointmentId}>
-                          <td>{appt.slotDate || '-'}</td>
-                          <td>{appt.startTime || '-'} {appt.endTime ? `- ${appt.endTime}` : ''}</td>
-                          <td><span className={`status-${appt.status.toLowerCase()}`}>{appt.status}</span></td>
-                          <td>{new Date(appt.requestedAt).toLocaleString()}</td>
-                          <td>
-                            {appt.status === 'Requested' && (
-                              <button type="button" className="danger-btn" onClick={() => {
-                                if (!window.confirm('Cancel this appointment?')) return;
-                                run(async () => {
-                                  await api.cancelAppointment(appt.appointmentId, token);
-                                  setInfo('Appointment cancelled');
-                                  setStudentAppointments(studentAppointments.filter(a => a.appointmentId !== appt.appointmentId));
-                                });
-                              }} disabled={loading}>Cancel</button>
-                            )}
-                            {appt.status !== 'Requested' && <span className="hint">Cannot cancel {appt.status.toLowerCase()}</span>}
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              </>
-            ) : studentAppointments.length === 0 && !loading ? (
-              <p className="hint">No appointments yet. Click "Load My Appointments" to check.</p>
-            ) : null}
-          </section>
+          <MyAppointments student={student} />
         ) : null}
 
         {activePage === 'emergency-contacts' ? (
@@ -1548,9 +1371,7 @@ export default function App() {
                   </article>
                 ))}
               </div>
-            ) : emergencyContacts.length === 0 && !loading ? (
-              <p className="hint">Click "View Emergency Contacts" to load the list.</p>
-            ) : null}
+            ) : <p className="hint">No emergency contacts loaded yet.</p>}
           </section>
         ) : null}
 
@@ -1604,6 +1425,7 @@ export default function App() {
                           <iframe
                             src={embedUrl}
                             title={video.title}
+                            loading="lazy"
                             allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
                             allowFullScreen
                           />
