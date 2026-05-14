@@ -57,6 +57,8 @@ Apache is optional for this prototype. You mainly need XAMPP MySQL, the backend 
 
 Monorepo scaffold for the mental health support system for BatStateU-TNEU Lipa Campus.
 
+For phone/device setup, backend startup, and collaborator instructions, see [PHONE_SETUP.md](PHONE_SETUP.md).
+
 ## Layout
 
 - `backend` - Node.js + Express + TypeScript API

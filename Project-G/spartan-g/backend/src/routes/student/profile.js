@@ -15,6 +15,7 @@ router.get('/me', auth, requireRole('student'), async (req, res) => {
     data: {
       studentId: student.studentId,
       name: student.name,
+      email: student.email,
       college: student.college,
       yearLevel: student.yearLevel,
       sex: student.sex,
