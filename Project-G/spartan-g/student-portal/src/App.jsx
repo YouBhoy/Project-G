@@ -412,17 +412,38 @@ export default function App() {
             assignedCollege: signupForm.assignedCollege || 'All'
           };
 
-      await api.signup(payload);
+      const data = await api.signup(payload);
       localStorage.setItem('spartan-g:last-signup-at', new Date().toISOString());
-      setMode('login');
-      setInfo('Account created. You can now log in.');
-      setLoginForm((prev) => ({
-        ...prev,
-        role: signupForm.role,
-        studentId: signupForm.role === 'student' ? signupForm.studentId : '',
-        email: signupForm.role === 'ogc' ? signupForm.email : '',
-        password: ''
-      }));
+
+      // For students, immediately log them in and show consent form
+      if (signupForm.role === 'student' && data?.token) {
+        setToken(data.token);
+        setSessionRole('student');
+        setStudent(data.student || null);
+        setFacilitator(null);
+        setMode('app');
+        setShowConsentModal(true); // Show consent form immediately
+        goToPage('consent');
+      } else if (signupForm.role === 'ogc' && data?.token) {
+        // For OGC facilitators, log them in and go to dashboard
+        setToken(data.token);
+        setSessionRole('ogc');
+        setFacilitator(data.facilitator || null);
+        setStudent(null);
+        setMode('app');
+        goToPage('dashboard');
+      } else {
+        // Fallback to login screen
+        setMode('login');
+        setInfo('Account created. You can now log in.');
+        setLoginForm((prev) => ({
+          ...prev,
+          role: signupForm.role,
+          studentId: signupForm.role === 'student' ? signupForm.studentId : '',
+          email: signupForm.role === 'ogc' ? signupForm.email : '',
+          password: ''
+        }));
+      }
     });
   }
 
