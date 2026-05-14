@@ -70,6 +70,65 @@ function yesNo(value) {
   return value ? 'Yes' : 'No';
 }
 
+const wellnessVideos = [
+  {
+    videoId: 'AOaIuwR0wyQ',
+    title: 'Pag-unawa sa Anxiety',
+    source: 'PinoyPsych101',
+    description: 'Isang Tagalog na paliwanag tungkol sa anxiety at kung paano ito mas mahusay na maunawaan at mapangasiwaan.',
+    language: 'tagalog',
+    languageLabel: '🇵🇭 Tagalog'
+  },
+  {
+    videoId: '8Ex6D7OJQNw',
+    title: 'Paano Nauuwi sa Depression ang Anxiety Disorder?',
+    source: 'UNTV News and Rescue',
+    description: 'Tagalog explainer sa koneksyon ng anxiety at depression at bakit mahalagang makakuha ng maagang suporta.',
+    language: 'tagalog',
+    languageLabel: '🇵🇭 Tagalog'
+  },
+  {
+    videoId: 'R18LEjnpVQM',
+    title: 'Paano Pakalmahin ang Utak',
+    source: 'Doc Willie & Liza 2nd Channel',
+    description: 'Praktikal na Tagalog tips para sa stress, anxiety, at panic attack relief sa pang-araw-araw na buhay.',
+    language: 'tagalog',
+    languageLabel: '🇵🇭 Tagalog'
+  },
+  {
+    videoId: '6p_yaNFSYao',
+    title: 'I May Have Anxiety',
+    source: 'Psych2Go',
+    description: 'A clear look at common anxiety signs and why they deserve attention.',
+    language: 'english',
+    languageLabel: '🌐 English'
+  },
+  {
+    videoId: '3QIfkeA6HBY',
+    title: 'How to Stop Feeling Anxious About Anxiety',
+    source: 'Therapy in a Nutshell',
+    description: 'Practical guidance for reducing the fear cycle that can build around anxiety itself.',
+    language: 'english',
+    languageLabel: '🌐 English'
+  },
+  {
+    videoId: 'z-IR48Mb3W0',
+    title: 'What is Depression?',
+    source: 'TED-Ed',
+    description: 'An educational overview of depression, its causes, symptoms, and why seeking help matters for mental wellness.',
+    language: 'english',
+    languageLabel: '🌐 English'
+  },
+  {
+    videoId: 'WuyPuH9ojCE',
+    title: 'Managing Stress & Mental Health',
+    source: 'Wellness',
+    description: 'Tips for managing daily stress while protecting overall mental well-being.',
+    language: 'english',
+    languageLabel: '🌐 English'
+  }
+];
+
 export default function App() {
   const [mode, setMode] = useState('login');
   const [authRole, setAuthRole] = useState('student');
@@ -94,6 +153,8 @@ export default function App() {
   const [studentAppointments, setStudentAppointments] = useState([]);
   const [showConsentModal, setShowConsentModal] = useState(false);
   const [consentCheckboxTicked, setConsentCheckboxTicked] = useState(false);
+  const [wellnessVideoFilter, setWellnessVideoFilter] = useState('all');
+  const [activeWellnessVideoId, setActiveWellnessVideoId] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [info, setInfo] = useState('');
@@ -126,6 +187,13 @@ export default function App() {
 
   const canTakeAssessments = Boolean(student?.consentFlag);
   const sortedQuestions = useMemo(() => [...questions].sort((a, b) => a.itemNumber - b.itemNumber), [questions]);
+  const filteredWellnessVideos = useMemo(() => {
+    if (wellnessVideoFilter === 'all') {
+      return wellnessVideos;
+    }
+
+    return wellnessVideos.filter((video) => video.language === wellnessVideoFilter);
+  }, [wellnessVideoFilter]);
 
   useEffect(() => {
     if (!token) return;
@@ -1467,9 +1535,78 @@ export default function App() {
 
         {activePage === 'wellness-resources' ? (
           <section className="card">
-            <h2>Wellness Resources & Psychoeducation</h2>
-            <p>Access self-help content, coping strategies, and wellness materials.</p>
-            <p className="hint">⚠️ GINHAWA module coming soon. This feature is under development.</p>
+            <div className="wellness-section-header">
+              <h2>🎥 Wellness Video Resources</h2>
+              <p>Click a thumbnail to play the video inline without leaving the page.</p>
+            </div>
+
+            <div className="video-filter-bar" role="tablist" aria-label="Wellness video language filters">
+              <button
+                type="button"
+                className={`video-filter-btn ${wellnessVideoFilter === 'all' ? 'active' : ''}`}
+                onClick={() => setWellnessVideoFilter('all')}
+              >
+                All
+              </button>
+              <button
+                type="button"
+                className={`video-filter-btn ${wellnessVideoFilter === 'tagalog' ? 'active' : ''}`}
+                onClick={() => setWellnessVideoFilter('tagalog')}
+              >
+                🇵🇭 Tagalog
+              </button>
+              <button
+                type="button"
+                className={`video-filter-btn ${wellnessVideoFilter === 'english' ? 'active' : ''}`}
+                onClick={() => setWellnessVideoFilter('english')}
+              >
+                🌐 English
+              </button>
+            </div>
+
+            <div className="wellness-video-grid">
+              {filteredWellnessVideos.map((video) => {
+                const isPlaying = activeWellnessVideoId === video.videoId;
+                const thumbnailUrl = `https://img.youtube.com/vi/${video.videoId}/hqdefault.jpg`;
+                const embedUrl = `https://www.youtube.com/embed/${video.videoId}?rel=0&modestbranding=1`;
+
+                return (
+                  <article key={video.videoId} className="wellness-video-card card">
+                    <button
+                      type="button"
+                      className="video-thumbnail-button"
+                      onClick={() => setActiveWellnessVideoId(video.videoId)}
+                      aria-label={`Play ${video.title} by ${video.source}`}
+                    >
+                      {isPlaying ? (
+                        <div className="video-frame-wrap">
+                          <iframe
+                            src={embedUrl}
+                            title={video.title}
+                            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                            allowFullScreen
+                          />
+                        </div>
+                      ) : (
+                        <div className="video-thumb-shell">
+                          <img src={thumbnailUrl} alt={`${video.title} thumbnail`} className="video-thumb-image" />
+                          <span className="video-play-badge" aria-hidden="true">▶</span>
+                        </div>
+                      )}
+                    </button>
+
+                    <div className="wellness-video-meta">
+                      <div className="video-title-row">
+                        <h3>{video.title}</h3>
+                        <span className={`language-badge ${video.language}`}>{video.languageLabel}</span>
+                      </div>
+                      <p className="video-source">by {video.source}</p>
+                      <p className="video-description">{video.description}</p>
+                    </div>
+                  </article>
+                );
+              })}
+            </div>
           </section>
         ) : null}
 

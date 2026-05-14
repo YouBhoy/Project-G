@@ -531,6 +531,176 @@ button:disabled {
   grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
 }
 
+.wellness-section-header {
+  display: grid;
+  gap: 6px;
+  margin-bottom: 16px;
+}
+
+.wellness-section-header h2 {
+  margin-bottom: 0;
+}
+
+.video-filter-bar {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin: 0 0 18px;
+}
+
+.video-filter-btn {
+  background: var(--color-off-white);
+  color: var(--color-gray-700);
+  border: 1px solid var(--color-gray-200);
+  box-shadow: inset 0 0 0 1px transparent;
+}
+
+.video-filter-btn:hover:not(:disabled) {
+  background: rgba(210, 35, 42, 0.06);
+  color: var(--color-primary);
+}
+
+.video-filter-btn.active {
+  background: var(--color-primary);
+  color: var(--color-white);
+  border-color: var(--color-primary);
+}
+
+.wellness-video-grid {
+  display: grid;
+  gap: 18px;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.wellness-video-card {
+  padding: 0;
+  overflow: hidden;
+  border-top-width: 1px;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.wellness-video-card:hover {
+  transform: translateY(-3px) scale(1.01);
+  box-shadow: 0 12px 28px rgba(0, 0, 0, 0.12);
+}
+
+.video-thumbnail-button {
+  display: block;
+  width: 100%;
+  padding: 0;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+}
+
+.video-thumbnail-button:hover:not(:disabled) {
+  background: transparent;
+}
+
+.video-thumb-shell,
+.video-frame-wrap {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  background: var(--color-gray-100);
+}
+
+.video-thumb-image,
+.video-frame-wrap iframe {
+  width: 100%;
+  height: 100%;
+  display: block;
+  border: 0;
+}
+
+.video-thumb-image {
+  object-fit: cover;
+}
+
+.video-thumb-shell::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(180deg, rgba(28, 28, 28, 0.08), rgba(28, 28, 28, 0.25));
+}
+
+.video-play-badge {
+  position: absolute;
+  inset: 50% auto auto 50%;
+  transform: translate(-50%, -50%);
+  z-index: 1;
+  width: 68px;
+  height: 68px;
+  border-radius: 999px;
+  display: grid;
+  place-items: center;
+  background: rgba(210, 35, 42, 0.92);
+  color: var(--color-white);
+  font-size: 26px;
+  padding-left: 4px;
+  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.22);
+}
+
+.wellness-video-meta {
+  display: grid;
+  gap: 8px;
+  padding: 16px;
+}
+
+.video-title-row {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+  justify-content: space-between;
+}
+
+.video-title-row h3 {
+  margin: 0;
+  font-family: var(--font-heading);
+  color: var(--color-primary);
+  font-size: 17px;
+  line-height: 1.2;
+}
+
+.language-badge {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 5px 10px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 700;
+  border: 1px solid transparent;
+  white-space: nowrap;
+}
+
+.language-badge.tagalog {
+  background: rgba(210, 35, 42, 0.08);
+  color: var(--color-primary);
+  border-color: rgba(210, 35, 42, 0.2);
+}
+
+.language-badge.english {
+  background: rgba(201, 168, 76, 0.16);
+  color: var(--color-gray-700);
+  border-color: rgba(201, 168, 76, 0.35);
+}
+
+.video-source {
+  margin: 0;
+  font-size: 13px;
+  color: var(--color-gray-500);
+  font-weight: 600;
+}
+
+.video-description {
+  margin: 0;
+  font-size: 14px;
+  line-height: 1.55;
+  color: var(--color-gray-700);
+}
+
 .summary-card,
 .metric-card {
   border: 1px solid var(--color-gray-200);
@@ -600,6 +770,11 @@ button:disabled {
 @media (prefers-reduced-motion: reduce) {
   .risk-badge.crisis {
     animation: none;
+  }
+
+  .wellness-video-card,
+  .video-play-badge {
+    transition: none;
   }
 }
 
@@ -968,8 +1143,31 @@ button:disabled {
   cursor: not-allowed;
 }
 
+@media (max-width: 1024px) {
+  .wellness-video-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
 /* Responsive Design */
 @media (max-width: 768px) {
+  .wellness-video-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .video-title-row {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .video-filter-bar {
+    gap: 8px;
+  }
+
+  .video-filter-btn {
+    width: 100%;
+  }
+
   .consent-modal {
     width: 95vw;
     max-height: 95vh;
