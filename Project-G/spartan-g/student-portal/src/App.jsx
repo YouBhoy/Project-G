@@ -93,6 +93,7 @@ export default function App() {
   const [availableSlots, setAvailableSlots] = useState([]);
   const [studentAppointments, setStudentAppointments] = useState([]);
   const [showConsentModal, setShowConsentModal] = useState(false);
+  const [consentCheckboxTicked, setConsentCheckboxTicked] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [info, setInfo] = useState('');
@@ -374,6 +375,7 @@ export default function App() {
     run(async () => {
       const data = await api.setConsent(consent, token);
       setStudent((prev) => ({ ...prev, consentFlag: data.consentFlag }));
+      setConsentCheckboxTicked(false);
       setShowConsentModal(!data.consentFlag);
       if (data.consentFlag) goToPage('dass21');
     });
@@ -1042,16 +1044,157 @@ export default function App() {
           )}
 
           {showConsentModal ? (
-            <div className="modal-backdrop" role="dialog" aria-modal="true" aria-label="Consent Required">
-              <section className="modal-card">
-                <div className="modal-header"><h2>Digital Informed Consent (Required)</h2></div>
-                <div className="modal-body">
-                  <p>Before using DASS-21, PHQ-9, GAD-7, or ESM Check-in, you must acknowledge digital informed consent.</p>
-                  <p>You may withdraw anytime. If withdrawn, assessment access will be blocked until you consent again.</p>
-                  <p>Status: <strong>{student?.consentFlag ? 'Consented' : 'Not Consented'}</strong></p>
-                  <div className="row">
-                    <button type="button" onClick={() => submitConsent(true)} disabled={loading}>I Consent</button>
-                    <button type="button" className="muted-btn" onClick={() => submitConsent(false)} disabled={loading}>Withdraw Consent</button>
+            <div className="modal-backdrop" role="dialog" aria-modal="true" aria-label="Digital Informed Consent">
+              <section className="modal-card consent-modal">
+                <div className="modal-header consent-modal-header">
+                  <h2>Digital Informed Consent (Required)</h2>
+                  <p className="consent-subtitle">BatStateU Mental Health Assessment System - Data Collection & Processing Agreement</p>
+                </div>
+                <div className="modal-body consent-modal-body">
+                  <div className="consent-status">
+                    <span className="status-label">Consent Status:</span>
+                    <span className={`status-badge ${student?.consentFlag ? 'consented' : 'not-consented'}`}>
+                      {student?.consentFlag ? 'Consented' : 'Not Consented'}
+                    </span>
+                  </div>
+
+                  <div className="consent-content">
+                    <section className="consent-section">
+                      <h3>📋 Purpose of Data Collection</h3>
+                      <p>
+                        Responses from mental health assessments (DASS-21, PHQ-9, GAD-7, and ESM Check-in) will be collected and processed to:
+                      </p>
+                      <ul>
+                        <li>Monitor your mental health and well-being during your academic journey</li>
+                        <li>Provide personalized referrals to campus counseling and support services</li>
+                        <li>Conduct academic research to improve student mental health programs</li>
+                        <li>Enhance wellness initiatives and support services at Batangas State University</li>
+                      </ul>
+                    </section>
+
+                    <section className="consent-section">
+                      <h3>📊 What Data is Collected</h3>
+                      <p>The following personal data will be collected and processed:</p>
+                      <ul>
+                        <li><strong>Assessment Responses:</strong> Your answers to DASS-21, PHQ-9, GAD-7, and ESM questions</li>
+                        <li><strong>Timestamps:</strong> When assessments were completed</li>
+                        <li><strong>User Identifiers:</strong> Your student ID, name, email, and college affiliation</li>
+                        <li><strong>Derived Scores:</strong> Mental health risk classifications and wellness metrics calculated from your responses</li>
+                        <li><strong>Appointment Data:</strong> Booking and attendance records for counseling sessions (if applicable)</li>
+                      </ul>
+                    </section>
+
+                    <section className="consent-section">
+                      <h3>💼 How Data Will Be Used</h3>
+                      <ul>
+                        <li>Data will be used <strong>only for the stated purposes</strong> above</li>
+                        <li>Individual assessment results will <strong>not be sold, traded, or shared with unauthorized third parties</strong></li>
+                        <li>Data may be used for <strong>aggregate and anonymized research</strong> to improve university wellness programs</li>
+                        <li>Results may be shared with campus counseling services <strong>only when necessary to provide support</strong></li>
+                        <li>In cases of immediate risk (crisis), results may be shared with emergency services and campus authorities</li>
+                      </ul>
+                    </section>
+
+                    <section className="consent-section">
+                      <h3>🔒 Data Confidentiality & Security</h3>
+                      <p>
+                        Batangas State University employs appropriate technical and organizational measures to protect your data, including:
+                      </p>
+                      <ul>
+                        <li>Encryption of data in transit and at rest</li>
+                        <li>Secure authentication and access controls</li>
+                        <li>Regular security audits and updates</li>
+                        <li><strong>Only authorized personnel</strong> (designated mental health professionals, counselors, and administrators) may access your individual assessment results</li>
+                        <li>Data retention policies compliant with Philippine regulations</li>
+                      </ul>
+                    </section>
+
+                    <section className="consent-section">
+                      <h3>⚖️ Your Rights Under the Data Privacy Act of 2012 (Republic Act No. 10173)</h3>
+                      <p>As a data subject in the Philippines, you have the following rights:</p>
+                      <ul>
+                        <li><strong>Right to be Informed:</strong> You have the right to know what personal data is being collected and how it will be used</li>
+                        <li><strong>Right to Access:</strong> You may request access to your personal data at any time</li>
+                        <li><strong>Right to Correct:</strong> You may request correction of inaccurate or incomplete data</li>
+                        <li><strong>Right to Object:</strong> You may object to the processing of your data for specific purposes</li>
+                        <li><strong>Right to Erase or Block:</strong> You may request erasure or blocking of your data under certain circumstances</li>
+                        <li><strong>Right to Data Portability:</strong> You may request your data in a structured, commonly used format</li>
+                        <li><strong>Right to Lodge a Complaint:</strong> You may file a complaint with the National Privacy Commission (NPC) regarding violations of your data privacy rights</li>
+                      </ul>
+                    </section>
+
+                    <section className="consent-section">
+                      <h3>✋ Voluntary Participation & Withdrawal</h3>
+                      <ul>
+                        <li>Your consent to participate in the assessment system is <strong>completely voluntary</strong></li>
+                        <li>You may <strong>withdraw your consent at any time</strong> without penalty or loss of benefits</li>
+                        <li>If you withdraw consent, <strong>access to assessments will be restricted</strong> until you provide consent again</li>
+                        <li>Withdrawing consent does not affect the lawfulness of processing before withdrawal</li>
+                        <li>You may manage your consent status at any time via the "Manage Consent" button on the dashboard</li>
+                      </ul>
+                    </section>
+
+                    <section className="consent-section">
+                      <h3>📞 Contact & Data Protection Officer</h3>
+                      <p>For privacy-related concerns, requests, or to exercise your rights under the Data Privacy Act, please contact:</p>
+                      <div className="dpo-contact">
+                        <p>
+                          <strong>BatStateU Data Protection Officer (DPO)</strong><br/>
+                          Batangas State University<br/>
+                          Email: <a href="mailto:privacy@batstateu.edu.ph">privacy@batstateu.edu.ph</a><br/>
+                          Office: Records Management Office<br/>
+                          <br/>
+                          <strong>National Privacy Commission (NPC)</strong><br/>
+                          <a href="https://privacy.gov.ph" target="_blank" rel="noopener noreferrer">https://privacy.gov.ph</a><br/>
+                          Toll-free: 1-646-472-5555
+                        </p>
+                      </div>
+                    </section>
+
+                    <section className="consent-section">
+                      <h3>📝 Policy References</h3>
+                      <p>
+                        This consent form is based on:
+                      </p>
+                      <ul>
+                        <li>Data Privacy Act of 2012 (Republic Act No. 10173) of the Philippines</li>
+                        <li><a href="https://batstateu.edu.ph/privacy-policy/" target="_blank" rel="noopener noreferrer">BatStateU Privacy Policy</a></li>
+                        <li>BatStateU Institutional Review Board (IRB) guidelines for research ethics</li>
+                      </ul>
+                    </section>
+                  </div>
+
+                  <div className="consent-footer">
+                    <div className="checkbox-group">
+                      <label className="checkbox-label">
+                        <input 
+                          type="checkbox" 
+                          checked={consentCheckboxTicked}
+                          onChange={(e) => setConsentCheckboxTicked(e.target.checked)}
+                          className="consent-checkbox"
+                        />
+                        <span>I have read and understood the above terms and I <strong>voluntarily give my consent</strong> to the collection and processing of my personal data as described.</span>
+                      </label>
+                    </div>
+
+                    <div className="consent-actions">
+                      <button 
+                        type="button" 
+                        onClick={() => submitConsent(true)} 
+                        disabled={loading || !consentCheckboxTicked}
+                        className="consent-btn consent-agree"
+                      >
+                        I Consent
+                      </button>
+                      <button 
+                        type="button" 
+                        className="consent-btn consent-withdraw" 
+                        onClick={() => submitConsent(false)} 
+                        disabled={loading}
+                      >
+                        Withdraw Consent
+                      </button>
+                    </div>
                   </div>
                 </div>
               </section>
