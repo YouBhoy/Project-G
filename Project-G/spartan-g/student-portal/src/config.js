@@ -1,0 +1,1 @@
+export const CALENDAR_API_BASE = import.meta.env.VITE_CALENDAR_API_BASE || 'http://localhost:3002';
