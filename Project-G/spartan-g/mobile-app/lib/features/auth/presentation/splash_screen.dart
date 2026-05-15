@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../../core/theme/app_colors.dart';
+import '../../../core/services/secure_storage_service.dart';
 import 'providers.dart';
 
 class SplashScreen extends ConsumerStatefulWidget {
@@ -31,6 +32,20 @@ class _SplashScreenState extends ConsumerState<SplashScreen> {
       if (ref.read(authProvider).isAuthenticated) {
         context.go('/home');
       } else {
+        // Development aid: support providing a DEV token at build time.
+        const devToken = String.fromEnvironment('DEV_TOKEN', defaultValue: '');
+        if (devToken.isNotEmpty) {
+          // Save token to secure storage and re-check auth status
+          try {
+            await ref.read(secureStorageProvider).saveToken(devToken);
+            await ref.read(authProvider.notifier).checkAuthStatus();
+            if (ref.read(authProvider).isAuthenticated) {
+              if (mounted) context.go('/home');
+              return;
+            }
+          } catch (_) {}
+        }
+
         if (mounted) context.go('/login');
       }
     } catch (_) {

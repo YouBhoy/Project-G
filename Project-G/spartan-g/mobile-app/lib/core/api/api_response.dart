@@ -64,3 +64,8 @@ class ValidationException extends ApiException {
   ValidationException(String message) 
     : super(message: message, statusCode: 400);
 }
+
+class ConsentRequiredException extends ApiException {
+  ConsentRequiredException(String message)
+      : super(message: message, statusCode: 403);
+}

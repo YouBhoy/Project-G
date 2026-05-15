@@ -1,9 +1,8 @@
 import { useEffect, useMemo, useState } from 'react';
-
-const API_BASE = 'http://localhost:3002';
+import { CALENDAR_API_BASE_URL } from '../../config.js';
 
 async function requestJson(path, options = {}) {
-  const response = await fetch(`${API_BASE}${path}`, {
+  const response = await fetch(`${CALENDAR_API_BASE_URL}${path}`, {
     headers: {
       'Content-Type': 'application/json',
       ...(options.headers || {})
@@ -47,7 +46,7 @@ export default function ManageSlots({ facilitator }) {
     setLoading(true);
     setError('');
     try {
-      console.log('Loading slots from http://localhost:3002/api/slots');
+      console.log(`Loading slots from ${CALENDAR_API_BASE_URL}/api/slots`);
       const data = await requestJson('/api/slots');
       console.log('GET /api/slots response:', data);
       setSlots(normalizeSlots(data));
