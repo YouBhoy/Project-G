@@ -1,163 +1,96 @@
-# SPARTAN-G Setup Guide for Collaborators
+# SPARTAN-G Setup Guide
 
-## Quick Start (30 seconds)
+This guide is the shortest path to a working local build for collaborators.
 
-### 1. Open XAMPP and Start MySQL
-- Launch XAMPP Control Panel
-- Click **Start** next to MySQL module
-- MySQL should be running on `localhost:3306`
+## 1. Install Prerequisites
 
-### 2. Import Database Schema
-Open phpMyAdmin (`http://localhost/phpmyadmin`) and:
-1. Click **Import** tab
-2. Select `backend/sql/setup-spartan-g.sql`
-3. Click **Go**
+- Windows
+- Node.js and npm
+- XAMPP with MySQL
+- Flutter only if you want the mobile app
 
-✅ Database `spartan_g` is created with schema + test data
+## 2. Start MySQL
 
-### 3. Install Dependencies & Configure
+Open XAMPP Control Panel and start MySQL.
 
-**Backend:**
+## 3. Import the Database
+
+Open phpMyAdmin at `http://localhost/phpmyadmin` and import `backend/sql/setup-spartan-g.sql`.
+
+That file creates the schema and seed data used by the prototype.
+
+## 4. Create Local Env Files
+
+Do not commit these files. Copy the examples instead:
+
 ```powershell
-cd spartan-g/backend
+Copy-Item "backend\.env.example" -Destination "backend\.env"
+Copy-Item "server\.env.example" -Destination "server\.env"
+```
+
+The backend `.env` is required for MySQL. The server `.env` is only needed if you want the optional Google Calendar bridge.
+
+If you use calendar features, also place your own Google service account JSON in `server/service-account.json`.
+
+## 5. Install Dependencies
+
+```powershell
 npm install
-Copy-Item ".env.example" -Destination ".env"
-```
-
-**Frontend:**
-```powershell
-cd spartan-g/student-portal
+cd "backend"
+npm install
+cd "..\student-portal"
 npm install
 ```
 
-### 4. Run the Application
+If you want the mobile app:
 
-**Terminal 1 - Backend:**
 ```powershell
-cd spartan-g/backend
-npm run dev
-# Should output: SPARTAN-G backend running on port 3001
+cd "..\mobile-app"
+flutter pub get
 ```
 
-**Terminal 2 - Frontend:**
+## 6. Run It
+
+The easiest option is:
+
 ```powershell
-cd spartan-g/student-portal
-npm run dev
-# Should output: VITE dev server running at http://localhost:5175
+cd "spartan-g"
+.\start-all.bat
 ```
 
-### 5. Open in Browser
-- Go to `http://localhost:5175`
-- Login with test credentials:
-  - **Email:** `alice@campus.edu`
-  - **Password:** `password123`
+The script starts the backend and student portal, and only starts the calendar server or mobile app when the local prerequisites are available.
 
----
+If you prefer manual start:
 
-## Database Details
+```powershell
+cd "spartan-g\backend"
+npm run dev
+```
 
-**Database Name:** `spartan_g`  
-**Host:** `localhost`  
-**Port:** `3306`  
-**User:** `root`  
-**Password:** (empty)
+```powershell
+cd "spartan-g\student-portal"
+npm run dev
+```
 
-### Test Data Included
-- **5 Test Students** (STU001-STU005)
-- **4 Emergency Contacts** (Hotline, Campus Services, etc.)
-- **1 Default OGC Facilitator** (ogc@campus.edu)
+## 7. Open the Apps
 
-All test accounts use password: `password123`
+- Student portal: `http://localhost:5175`
+- Backend health: `http://localhost:3001/api/health`
 
----
+Login with the seeded demo account from the database import.
+
+## Local Files Checklist
+
+- `backend/.env` for MySQL and backend settings
+- `server/.env` only if you want calendar features
+- `server/service-account.json` only if you want calendar features
 
 ## Troubleshooting
 
-### Backend won't start (EADDRINUSE)
-- Port 3001 is in use. Kill the process:
-  ```powershell
-  Get-Process node | Stop-Process -Force
-  ```
+- If port `3001` is busy, stop the other Node process or let the launcher reuse your existing backend.
+- If MySQL fails, confirm XAMPP MySQL is running.
+- If calendar features fail, make sure `server/.env` and `server/service-account.json` exist locally.
 
-### MySQL Connection Error
-- Verify XAMPP MySQL is running (green indicator)
-- Check `.env` file has correct MYSQL_HOST, MYSQL_PORT, MYSQL_USER
+## Security Note
 
-### Frontend can't reach backend
-- Ensure backend is running on port 3001
-- Check browser console for CORS errors
-- `.env` should have `VITE_API_BASE_URL=http://localhost:3001`
-
----
-
-## Environment Files
-
-- `.env` — Local configuration (gitignored, DO NOT COMMIT)
-- `.env.example` — Template showing required variables
-
-To set up local environment:
-```powershell
-cp .env.example .env
-```
-
----
-
-## Project Structure
-
-```
-spartan-g/
-├── backend/
-│   ├── src/
-│   │   ├── server.js         # Express server entrypoint
-│   │   ├── db.mysql.js       # MySQL driver
-│   │   ├── routes/           # API route modules
-│   │   ├── middleware/       # Auth & middleware
-│   │   ├── utils/            # Helpers & scoring functions
-│   │   └── storage/          # DB abstraction
-│   ├── sql/
-│   │   ├── schema.sql                # Table definitions only
-│   │   └── setup-spartan-g.sql       # Complete setup (schema + seed data)
-│   ├── .env.example          # Environment template
-│   └── package.json
-│
-├── student-portal/
-│   ├── src/
-│   │   ├── App.jsx           # Main React component
-│   │   ├── api.js            # API client (fetch wrapper)
-│   │   └── styles.css        # Styling
-│   └── package.json
-│
-└── README.md
-```
-
----
-
-## Key APIs
-
-| Endpoint | Method | Purpose |
-|----------|--------|---------|
-| `/api/health` | GET | Health check |
-| `/api/auth/login` | POST | Student/OGC login |
-| `/api/auth/signup` | POST | Register new student |
-| `/api/student/profile/me` | GET | Get logged-in student |
-| `/api/student/gawa/dass21/questions` | GET | DASS21 assessment questions |
-| `/api/student/appointments/available` | GET | View available appointment slots |
-| `/api/student/appointments/book` | POST | Book appointment |
-| `/api/ogc/appointments` | GET | View all appointments (OGC) |
-| `/api/ogc/availability/create` | POST | Create availability slot (OGC) |
-
----
-
-## Notes
-
-- **SQLite is NOT used** — Project strictly uses XAMPP MySQL
-- Backend runs on **port 3001**
-- Frontend runs on **port 5175**
-- JWT authentication required for protected routes
-- All timestamps stored as ISO-8601 strings (UTC)
-
----
-
-## Need Help?
-
-Check the main [README.md](./README.md) or contact the development team.
+Private keys, API tokens, and Google service account JSON files should stay local. Share the example files instead.
