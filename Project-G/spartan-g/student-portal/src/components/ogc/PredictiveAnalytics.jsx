@@ -108,8 +108,8 @@ export default function PredictiveAnalytics({ data, loading, onRefresh }) {
                   const band = riskBand(xgboost);
                   const topDrivers = toTopFeatures(row.explanations?.xgboost || row.explanations?.logistic || []);
                   return (
-                    <tr key={row.studentId}>
-                      <td className="student-id-cell"><strong>{row.studentId}</strong></td>
+                    <tr key={row.pseudoId || row.studentId}>
+                      <td className="student-id-cell"><strong>{row.pseudoId || row.studentId}</strong></td>
                       <td><span className={bandClassName(band)}>{band}</span></td>
                       <td><ScoreBar value={logistic} /></td>
                       <td><ScoreBar value={xgboost} /></td>
@@ -118,7 +118,7 @@ export default function PredictiveAnalytics({ data, loading, onRefresh }) {
                           <div className="driver-chip-list">
                             {topDrivers.map((item) => (
                               <DriverChip
-                                key={`${row.studentId}-${item.feature}`}
+                                key={`${row.pseudoId || row.studentId}-${item.feature}`}
                                 feature={item.feature}
                                 contribution={item.contribution}
                               />

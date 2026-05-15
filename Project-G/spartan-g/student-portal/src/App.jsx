@@ -375,6 +375,11 @@ export default function App() {
     try {
       await action();
     } catch (err) {
+      if (Number(err?.status) === 401) {
+        logout();
+        setError(err.message || 'Session expired. Please login again.');
+        return;
+      }
       setError(err.message);
     } finally {
       setLoading(false);
@@ -583,7 +588,7 @@ export default function App() {
 
   function contactCriticalStudent(studentId) {
     run(async () => {
-      const data = await api.ogcContact({ studentId, channel: 'Email' }, token);
+      const data = await api.ogcContact({ pseudoId: studentId, channel: 'Email' }, token);
       setInfo(data.message || 'Contact action logged.');
       await refreshOgcDashboard();
     });
@@ -822,7 +827,7 @@ export default function App() {
                                 <div key={`${alert.pseudoId}-${alert.latestClassificationAt}`} className="ogc-item">
                                   <p><strong>{alert.pseudoId}</strong> – Crisis classification at {new Date(alert.latestClassificationAt).toLocaleString()}</p>
                                   {alert.contact?.canContact ? (
-                                    <button type="button" onClick={() => contactCriticalStudent(alert.contact.studentId)}>Contact Student</button>
+                                    <button type="button" onClick={() => contactCriticalStudent(alert.contact.pseudoId || alert.pseudoId)}>Contact Student</button>
                                   ) : null}
                                 </div>
                               ))}
@@ -846,11 +851,11 @@ export default function App() {
               )}
 
               {ogcTab === 'slots' && (
-                <ManageSlots facilitator={facilitator} />
+                <ManageSlots facilitator={facilitator} token={token} />
               )}
 
               {ogcTab === 'appointments' && (
-                <ManageAppointments facilitator={facilitator} />
+                <ManageAppointments facilitator={facilitator} token={token} />
               )}
 
               {ogcTab === 'contacts' && (

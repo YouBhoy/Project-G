@@ -3,17 +3,42 @@ import { readDb } from '../storage/index.js';
 
 const JWT_SECRET = process.env.JWT_SECRET || 'spartan-g-dev-secret';
 
-export function auth(req, res, next) {
+export async function auth(req, res, next) {
   const authHeader = req.headers.authorization || '';
   const token = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : '';
   if (!token) {
     return res.status(401).json({ success: false, message: 'Missing auth token.' });
   }
+
   try {
     const decoded = jwt.verify(token, JWT_SECRET);
     req.user = decoded;
-    next();
+
+    if (decoded?.role === 'ogc') {
+      const db = await readDb();
+      const facilitator = db.facilitators.find((item) => Number(item.facilitatorId) === Number(decoded.facilitatorId));
+      if (!facilitator) {
+        return res.status(401).json({ success: false, message: 'Facilitator account not found.' });
+      }
+
+      req.facilitator = facilitator;
+      req.user = {
+        ...decoded,
+        facilitatorId: facilitator.facilitatorId,
+        assignedCollege: facilitator.assignedCollege,
+        email: facilitator.email,
+        facilitatorName: facilitator.name
+      };
+
+      return next();
+    }
+
+    return next();
   } catch (err) {
+    if (err?.name === 'TokenExpiredError') {
+      return res.status(401).json({ success: false, message: 'Session expired. Please log in again.' });
+    }
+
     return res.status(401).json({ success: false, message: 'Invalid auth token.' });
   }
 }
@@ -21,7 +46,7 @@ export function auth(req, res, next) {
 export function requireRole(expectedRole) {
   return (req, res, next) => {
     if (!req.user || req.user.role !== expectedRole) {
-      return res.status(403).json({ success: false, message: 'Forbidden for this role.' });
+      return res.status(403).json({ success: false, message: 'Forbidden access.' });
     }
     return next();
   };

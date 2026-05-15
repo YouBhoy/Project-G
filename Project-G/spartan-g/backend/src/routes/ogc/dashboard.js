@@ -1,5 +1,8 @@
 import express from 'express';
 import { readDb } from '../../db.mysql.js';
+import { auth, requireRole } from '../../middleware/auth.js';
+import { buildCriticalAlert, getAuthorizedStudentIds, getAuthorizedStudents } from '../../utils/ogcScope.js';
+import { pseudonymizeStudentId } from '../../utils/helpers.js';
 
 const router = express.Router();
 
@@ -33,15 +36,21 @@ function percentile(values, p) {
 }
 
 // GET /api/ogc/dashboard
-router.get('/', async (req, res) => {
+router.get('/', auth, requireRole('ogc'), async (req, res) => {
   try {
     const snapshot = await readDb();
 
-    const students = snapshot.students || [];
-    const esm = snapshot.esmEntries || [];
-    const classifications = snapshot.riskClassifications || [];
-    const dassResponses = snapshot.dass21Responses || [];
-    const assessments = snapshot.assessments || [];
+    const facilitator = snapshot.facilitators.find((item) => Number(item.facilitatorId) === Number(req.user.facilitatorId));
+    if (!facilitator) {
+      return res.status(404).json({ success: false, message: 'Facilitator not found.' });
+    }
+
+    const students = getAuthorizedStudents(snapshot, facilitator);
+    const authorizedStudentIds = getAuthorizedStudentIds(snapshot, facilitator);
+    const esm = (snapshot.esmEntries || []).filter((entry) => authorizedStudentIds.has(String(entry.studentId)));
+    const classifications = (snapshot.riskClassifications || []).filter((entry) => authorizedStudentIds.has(String(entry.studentId)));
+    const dassResponses = (snapshot.dass21Responses || []).filter((entry) => authorizedStudentIds.has(String(snapshot.assessments.find((assessment) => assessment.assessmentId === entry.assessmentId)?.studentId || '')));
+    const assessments = (snapshot.assessments || []).filter((assessment) => authorizedStudentIds.has(String(assessment.studentId)));
 
     const totalStudents = students.length;
 
@@ -65,11 +74,10 @@ router.get('/', async (req, res) => {
     const criticalAlerts = [];
     for (const [sid, cls] of Object.entries(latestClassByStudent)) {
       if (cls.riskLevel === 'Crisis') {
-        criticalAlerts.push({
-          pseudoId: `S-${String(sid).padStart(4, '0')}`,
-          latestClassificationAt: cls.generatedAt,
-          contact: { canContact: true, studentId: sid }
-        });
+        const student = students.find((item) => String(item.studentId) === String(sid));
+        if (student) {
+          criticalAlerts.push(buildCriticalAlert(student, cls));
+        }
       }
     }
 
@@ -292,7 +300,7 @@ router.get('/', async (req, res) => {
       const latestCls = latestClassByStudent[sid] || null;
 
       studentRows.push({
-        pseudoId: `S-${String(sid).padStart(4, '0')}`,
+        pseudoId: pseudonymizeStudentId(sid),
         college: s.college,
         yearLevel: s.yearLevel,
         latestRiskLevel: latestCls ? latestCls.riskLevel : 'Low',

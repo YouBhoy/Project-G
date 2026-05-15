@@ -2,14 +2,21 @@ import express from 'express';
 import { readDb, writeDb } from '../../storage/index.js';
 import { auth, requireRole } from '../../middleware/auth.js';
 import { pseudonymizeStudentId, nowIso } from '../../utils/helpers.js';
+import { getAuthorizedStudentIds } from '../../utils/ogcScope.js';
 
 const router = express.Router();
 
 // Get appointments for OGC facilitator
 router.get('/', auth, requireRole('ogc'), async (req, res) => {
   const db = await readDb();
+  const facilitator = db.facilitators.find((item) => Number(item.facilitatorId) === Number(req.user.facilitatorId));
+  if (!facilitator) {
+    return res.status(404).json({ success: false, message: 'Facilitator not found.' });
+  }
+
+  const authorizedStudentIds = getAuthorizedStudentIds(db, facilitator);
   const appointments = db.appointments
-    .filter((a) => Number(a.facilitatorId) === Number(req.user.facilitatorId))
+    .filter((a) => Number(a.facilitatorId) === Number(req.user.facilitatorId) && authorizedStudentIds.has(String(a.studentId)))
     .map((a) => {
       const student = db.students.find((s) => s.studentId === a.studentId);
       return {
@@ -23,9 +30,10 @@ router.get('/', auth, requireRole('ogc'), async (req, res) => {
         approvedAt: a.approvedAt,
         rejectedAt: a.rejectedAt,
         completedAt: a.completedAt,
-        studentName: student?.name || 'Unknown',
+        studentName: student?.consentFlag ? student.name : null,
         studentCollege: student?.college || null,
-        pseudoId: pseudonymizeStudentId(a.studentId)
+        pseudoId: pseudonymizeStudentId(a.studentId),
+        canRevealIdentity: Boolean(student?.consentFlag)
       };
     })
     .sort((a, b) => b.requestedAt.localeCompare(a.requestedAt));
@@ -53,9 +61,16 @@ router.post('/:appointmentId/approve', auth, requireRole('ogc'), async (req, res
   const appointmentId = Number(req.params.appointmentId);
   const { ogcNotes = '' } = req.body || {};
   const db = await readDb();
+  const facilitator = db.facilitators.find((item) => Number(item.facilitatorId) === Number(req.user.facilitatorId));
   const appointment = db.appointments.find((a) => a.appointmentId === appointmentId);
 
-  if (!appointment || Number(appointment.facilitatorId) !== Number(req.user.facilitatorId)) {
+  if (!facilitator) {
+    return res.status(404).json({ success: false, message: 'Facilitator not found.' });
+  }
+
+  const authorizedStudentIds = getAuthorizedStudentIds(db, facilitator);
+
+  if (!appointment || Number(appointment.facilitatorId) !== Number(req.user.facilitatorId) || !authorizedStudentIds.has(String(appointment.studentId))) {
     return res.status(404).json({ success: false, message: 'Appointment not found or you lack permission.' });
   }
 
@@ -82,9 +97,16 @@ router.post('/:appointmentId/reject', auth, requireRole('ogc'), async (req, res)
   const appointmentId = Number(req.params.appointmentId);
   const { rejectionReason = '' } = req.body || {};
   const db = await readDb();
+  const facilitator = db.facilitators.find((item) => Number(item.facilitatorId) === Number(req.user.facilitatorId));
   const appointment = db.appointments.find((a) => a.appointmentId === appointmentId);
 
-  if (!appointment || Number(appointment.facilitatorId) !== Number(req.user.facilitatorId)) {
+  if (!facilitator) {
+    return res.status(404).json({ success: false, message: 'Facilitator not found.' });
+  }
+
+  const authorizedStudentIds = getAuthorizedStudentIds(db, facilitator);
+
+  if (!appointment || Number(appointment.facilitatorId) !== Number(req.user.facilitatorId) || !authorizedStudentIds.has(String(appointment.studentId))) {
     return res.status(404).json({ success: false, message: 'Appointment not found or you lack permission.' });
   }
 
@@ -119,9 +141,16 @@ router.post('/:appointmentId/complete', auth, requireRole('ogc'), async (req, re
   const appointmentId = Number(req.params.appointmentId);
   const { ogcNotes = '' } = req.body || {};
   const db = await readDb();
+  const facilitator = db.facilitators.find((item) => Number(item.facilitatorId) === Number(req.user.facilitatorId));
   const appointment = db.appointments.find((a) => a.appointmentId === appointmentId);
 
-  if (!appointment || Number(appointment.facilitatorId) !== Number(req.user.facilitatorId)) {
+  if (!facilitator) {
+    return res.status(404).json({ success: false, message: 'Facilitator not found.' });
+  }
+
+  const authorizedStudentIds = getAuthorizedStudentIds(db, facilitator);
+
+  if (!appointment || Number(appointment.facilitatorId) !== Number(req.user.facilitatorId) || !authorizedStudentIds.has(String(appointment.studentId))) {
     return res.status(404).json({ success: false, message: 'Appointment not found or you lack permission.' });
   }
 
