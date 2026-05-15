@@ -173,8 +173,8 @@ export const api = {
   rejectAppointment: (appointmentId, body, token) => request(`/api/ogc/appointments/${appointmentId}/reject`, { method: 'POST', body: JSON.stringify(body) }, token),
   completeAppointment: (appointmentId, body, token) => request(`/api/ogc/appointments/${appointmentId}/complete`, { method: 'POST', body: JSON.stringify(body) }, token),
   // GABAY - OGC Availability Slots
-  createAvailabilitySlot: (body, token) => request('/api/ogc/availability/create', { method: 'POST', body: JSON.stringify(body) }, token),
-  getOgcAvailabilitySlots: (token) => request('/api/ogc/availability/list', {}, token),
+  createAvailabilitySlot: (body, token) => request('/api/ogc/availability', { method: 'POST', body: JSON.stringify(body) }, token),
+  getOgcAvailabilitySlots: (token) => request('/api/ogc/availability', {}, token),
   deleteAvailabilitySlot: (slotId, token) => request(`/api/ogc/availability/${slotId}`, { method: 'DELETE' }, token),
   // Emergency Contacts
   getEmergencyContacts: () => request('/api/emergency-contacts', {})
