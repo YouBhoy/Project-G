@@ -26,40 +26,40 @@ function normalizeSlots(data) {
 }
 
 function parseBookingsFromSlots(slots) {
-  // Prefer server-parsed bookings if available (includes per-booking status)
   const bookings = [];
 
   slots.forEach((slot) => {
     if (Array.isArray(slot.bookings) && slot.bookings.length) {
-      slot.bookings.forEach((b) => {
+      slot.bookings.forEach((booking) => {
         bookings.push({
           eventId: slot.eventId,
-          title: slot.title,
+          title: slot.title || 'Counseling Session',
           date: slot.date,
           startTime: slot.startTime,
           endTime: slot.endTime,
-          studentId: b.studentId || '',
-          studentName: b.studentName || '',
-          status: b.status || slot.calendarStatus || 'Pending'
+          studentId: booking.studentId || '',
+          studentName: booking.studentName || '',
+          status: booking.status || slot.calendarStatus || 'Pending'
         });
       });
       return;
     }
 
-    // Fallback: try to parse description if server didn't include bookings
     const description = String(slot.description || '');
     const lines = description.split(/\r?\n/).map((line) => line.trim()).filter(Boolean);
-
     const base = {
       eventId: slot.eventId,
-      title: slot.title,
+      title: slot.title || 'Counseling Session',
       date: slot.date,
       startTime: slot.startTime,
       endTime: slot.endTime,
-      status: 'Pending'
+      studentId: '',
+      studentName: '',
+      status: slot.calendarStatus || 'Pending'
     };
 
     let current = null;
+
     lines.forEach((line) => {
       if (line.startsWith('Student ID:')) {
         current = {
@@ -86,12 +86,23 @@ function parseBookingsFromSlots(slots) {
   return bookings;
 }
 
+function normalizeDisplayStatus(status) {
+  if (status === 'Confirmed') return 'Approved';
+  if (status === 'Declined') return 'Disapproved';
+  if (status === 'Cancelled') return 'Cancelled';
+  if (status === 'Approved') return 'Approved';
+  if (status === 'Disapproved') return 'Disapproved';
+  return 'Pending';
+}
+
 function statusStyle(status) {
-  if (status === 'Confirmed') {
+  const displayStatus = normalizeDisplayStatus(status);
+
+  if (displayStatus === 'Approved') {
     return { backgroundColor: '#2e7d32', color: '#FFFFFF' };
   }
 
-  if (status === 'Cancelled') {
+  if (displayStatus === 'Disapproved' || displayStatus === 'Cancelled') {
     return { backgroundColor: '#8B0000', color: '#FFFFFF' };
   }
 
@@ -111,8 +122,7 @@ export default function ManageAppointments({ facilitator }) {
     setError('');
     try {
       const data = await requestJson('/api/slots');
-      const slots = normalizeSlots(data);
-      setBookings(parseBookingsFromSlots(slots));
+      setBookings(parseBookingsFromSlots(normalizeSlots(data)));
     } catch (err) {
       setError(err.message);
     } finally {
@@ -125,20 +135,36 @@ export default function ManageAppointments({ facilitator }) {
   }, []);
 
   const updateBooking = async (booking, action) => {
-    if (!window.confirm(`${action} this appointment for ${booking.studentId || booking.studentName}?`)) return;
+    const endpointByAction = {
+      approve: 'confirm',
+      disapprove: 'disapprove',
+      cancel: 'cancel'
+    };
+
+    const labelByAction = {
+      approve: 'Approve',
+      disapprove: 'Disapprove',
+      cancel: 'Cancel'
+    };
+
+    const endpoint = endpointByAction[action];
+    const label = labelByAction[action];
+
+    if (!endpoint || !label) return;
+
+    if (!window.confirm(`${label} this appointment for ${booking.studentName || booking.studentId || 'the student'}?`)) return;
 
     try {
       setLoading(true);
       setError('');
       setMessage('');
 
-      const path = `/api/bookings/${booking.eventId}/${action.toLowerCase()}`;
-      await requestJson(path, {
+      await requestJson(`/api/bookings/${booking.eventId}/${endpoint}`, {
         method: 'PATCH',
         body: JSON.stringify({ studentId: booking.studentId })
       });
 
-      setMessage(`Appointment ${action.toLowerCase()}ed.`);
+      setMessage(`Appointment ${label.toLowerCase()}d.`);
       await loadBookings();
     } catch (err) {
       setError(err.message);
@@ -151,8 +177,8 @@ export default function ManageAppointments({ facilitator }) {
     <section className="card calendar-card">
       <div className="calendar-header">
         <div>
-          <h2>Appointments</h2>
-          <p>Review student booking requests from the facilitator calendar.</p>
+          <h2>Manage Appointments</h2>
+          <p>Review and respond to student appointment requests.</p>
         </div>
         <button type="button" className="muted-btn" onClick={loadBookings} disabled={loading}>
           Refresh
@@ -167,39 +193,66 @@ export default function ManageAppointments({ facilitator }) {
         <table className="ogc-table">
           <thead>
             <tr>
-              <th>Student ID</th>
+              <th>Student Name</th>
               <th>Date</th>
               <th>Time</th>
+              <th>Title / Type</th>
               <th>Status</th>
               <th>Action</th>
             </tr>
           </thead>
           <tbody>
-            {bookings.length ? bookings.map((booking) => (
-              <tr key={`${booking.eventId}-${booking.studentId}`}> 
-                <td>{booking.studentId}</td>
-                <td>{booking.date}</td>
-                <td>{booking.startTime} - {booking.endTime}</td>
-                <td>
-                  <span className="status-badge" style={statusStyle(booking.status)}>
-                    {booking.status}
-                  </span>
-                </td>
-                <td className="calendar-row-actions">
-                  <button type="button" className="success-btn" onClick={() => updateBooking(booking, 'Confirm')} disabled={loading || booking.status === 'Confirmed'}>
-                    Confirm
-                  </button>
-                  <button type="button" className="neutral-btn" onClick={() => updateBooking(booking, 'Disapprove')} disabled={loading || booking.status === 'Declined' || booking.status === 'Cancelled'}>
-                    Disapprove
-                  </button>
-                  <button type="button" className="danger-btn" onClick={() => updateBooking(booking, 'Cancel')} disabled={loading || booking.status === 'Cancelled'}>
-                    Cancel
-                  </button>
-                </td>
-              </tr>
-            )) : (
+            {loading ? (
               <tr>
-                <td colSpan="5">No appointment requests yet.</td>
+                <td colSpan="6">Loading appointments...</td>
+              </tr>
+            ) : bookings.length ? (
+              bookings.map((booking) => {
+                const displayStatus = normalizeDisplayStatus(booking.status);
+
+                return (
+                  <tr key={`${booking.eventId}-${booking.studentId || booking.studentName || 'student'}`}>
+                    <td>{booking.studentName || booking.studentId || 'Student'}</td>
+                    <td>{booking.date || '-'}</td>
+                    <td>{booking.startTime || '-'} - {booking.endTime || '-'}</td>
+                    <td>{booking.title || 'Counseling Session'}</td>
+                    <td>
+                      <span className="status-badge" style={statusStyle(booking.status)}>
+                        {displayStatus}
+                      </span>
+                    </td>
+                    <td className="calendar-row-actions">
+                      <button
+                        type="button"
+                        className="success-btn"
+                        onClick={() => updateBooking(booking, 'approve')}
+                        disabled={loading || displayStatus === 'Approved'}
+                      >
+                        Approve
+                      </button>
+                      <button
+                        type="button"
+                        className="neutral-btn"
+                        onClick={() => updateBooking(booking, 'disapprove')}
+                        disabled={loading || displayStatus === 'Disapproved' || displayStatus === 'Cancelled'}
+                      >
+                        Disapprove
+                      </button>
+                      <button
+                        type="button"
+                        className="danger-btn"
+                        onClick={() => updateBooking(booking, 'cancel')}
+                        disabled={loading || displayStatus === 'Cancelled'}
+                      >
+                        Cancel
+                      </button>
+                    </td>
+                  </tr>
+                );
+              })
+            ) : (
+              <tr>
+                <td colSpan="6">No appointment requests yet.</td>
               </tr>
             )}
           </tbody>

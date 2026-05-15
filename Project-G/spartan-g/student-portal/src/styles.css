@@ -1442,6 +1442,89 @@ button:disabled {
   color: var(--color-primary);
 }
 
+/* Avatar styles for emergency contacts */
+.avatar-wrapper {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.contact-avatar {
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 2px solid rgba(0,0,0,0.06);
+}
+
+.avatar-fallback {
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  background: #8B0000; /* BatStateU red */
+  color: #ffffff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  font-size: 18px;
+}
+
+/* Legend styles for emergency contacts */
+.contacts-legend {
+  margin-top: 12px;
+  background: rgba(255,255,255,0.6);
+  padding: 12px;
+  border-radius: 6px;
+  border: 1px solid var(--color-gray-200);
+}
+.contacts-legend h4 {
+  margin: 0 0 8px 0;
+  font-size: 15px;
+}
+.legend-items {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 6px;
+}
+.legend-scale {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+.legend-pill {
+  min-width: 32px;
+  height: 24px;
+  border-radius: 12px;
+  background: #f3f4f6;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  color: #111827;
+  border: 1px solid #e5e7eb;
+}
+.legend-pill:nth-child(1) { background: #10b981; color: white; }
+.legend-pill:nth-child(2) { background: #f59e0b; color: white; }
+.legend-pill:nth-child(3) { background: #ef4444; color: white; }
+.legend-pill:nth-child(4) { background: #7f1d1d; color: white; }
+.legend-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+}
+.legend-dot {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  display: inline-block;
+}
+.legend-dot.low { background: #10b981; }
+.legend-dot.medium { background: #f59e0b; }
+.legend-dot.high { background: #ef4444; }
+.legend-dot.severe { background: #7f1d1d; }
+
 .contact-card p {
   margin: 8px 0;
   font-size: 14px;

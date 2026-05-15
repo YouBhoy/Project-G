@@ -1,8 +1,10 @@
-import { useEffect, useMemo, useState } from 'react';
+﻿import { useEffect, useMemo, useState } from 'react';
 import { api } from './api.js';
 import BookAppointment from './components/student/BookAppointment.jsx';
 import ManageAppointments from './components/facilitator/ManageAppointments.jsx';
 import ManageSlots from './components/facilitator/ManageSlots.jsx';
+import EmergencyContactCard from './components/EmergencyContactCard.jsx';
+import EmergencyContactsLegend from './components/EmergencyContactsLegend.jsx';
 import MyAppointments from './components/student/MyAppointments.jsx';
 
 const studentModules = {
@@ -291,7 +293,7 @@ export default function App() {
     if (activePage === 'emergency-contacts') {
       run(async () => {
         const data = await api.getEmergencyContacts();
-        setEmergencyContacts(data.contacts || []);
+        setEmergencyContacts(data.emergencyContacts || data.contacts || []);
       });
     }
   }, [activePage, token, sessionRole]);
@@ -321,7 +323,7 @@ export default function App() {
     if (ogcTab === 'contacts') {
       run(async () => {
         const result = await api.getEmergencyContacts();
-        setEmergencyContacts(result.contacts || []);
+        setEmergencyContacts(result.emergencyContacts || result.contacts || []);
       });
     }
   }, [ogcTab, token, sessionRole]);
@@ -817,49 +819,7 @@ export default function App() {
 
                 {/* Appointments Tab */}
                 {ogcTab === 'appointments' && (
-                  <>
-                    <article className="summary-card full-width">
-                      <h3>Appointment Requests</h3>
-                      {ogcAppointments?.length ? (
-                        <div className="ogc-table-wrap">
-                          <table className="ogc-table">
-                            <thead>
-                              <tr>
-                                <th>Student ID</th>
-                                <th>Requested Date</th>
-                                <th>Requested Time</th>
-                                <th>Reason</th>
-                                <th>Status</th>
-                                <th>Action</th>
-                              </tr>
-                            </thead>
-                            <tbody>
-                              {ogcAppointments.map((apt, idx) => (
-                                <tr key={idx}>
-                                  <td>{apt.pseudoId || apt.studentId}</td>
-                                  <td>{apt.requestedDate}</td>
-                                  <td>{apt.requestedTime}</td>
-                                  <td>{apt.reason}</td>
-                                  <td><span className={`status-badge ${apt.status === 'approved' ? 'approved' : apt.status === 'rejected' ? 'rejected' : 'pending'}`}>{apt.status}</span></td>
-                                  <td>
-                                    {apt.status === 'pending' && (
-                                      <>
-                                        <button type="button" className="action-btn" onClick={() => { /* approve action */ }}>Approve</button>
-                                        <button type="button" className="muted-btn" onClick={() => { /* reject action */ }}>Reject</button>
-                                      </>
-                                    )}
-                                    {apt.status === 'approved' && (
-                                      <button type="button" className="muted-btn" onClick={() => { /* mark complete */ }}>Mark Complete</button>
-                                    )}
-                                  </td>
-                                </tr>
-                              ))}
-                            </tbody>
-                          </table>
-                        </div>
-                      ) : <p>No appointment requests.</p>}
-                    </article>
-                  </>
+                  <ManageAppointments facilitator={facilitator} />
                 )}
 
                 {/* Emergency Contacts Tab */}
@@ -934,44 +894,17 @@ export default function App() {
             )}
 
             {ogcTab === 'appointments' && (
-              <>
-                <h2>Manage Appointments</h2>
-                <p>Review and respond to student appointment requests.</p>
-                {ogcAppointments.length === 0 && !loading ? <p className="info-message">Loading appointments...</p> : null}
-                {ogcAppointments.length ? (
-                  <div className="ogc-table-wrap"><table className="ogc-table"><thead><tr><th>Student</th><th>Date</th><th>Time</th><th>Status</th><th>Requested</th><th>Action</th></tr></thead><tbody>{ogcAppointments.map((appt) => (<tr key={appt.appointmentId}><td>{appt.pseudoId || 'N/A'}</td><td>{appt.slotDate || '-'}</td><td>{appt.startTime || '-'}</td><td><span className={`status-${appt.status.toLowerCase()}`}>{appt.status}</span></td><td>{new Date(appt.requestedAt).toLocaleString()}</td><td>{appt.status === 'Requested' && (<><button type="button" className="success-btn" onClick={() => {
-                    if (!window.confirm('Approve this appointment?')) return;
-                    run(async () => {
-                      await api.approveAppointment(appt.appointmentId, {}, token);
-                      setInfo('Approved');
-                      setOgcAppointments(ogcAppointments.map(a => a.appointmentId === appt.appointmentId ? { ...a, status: 'Approved' } : a));
-                    });
-                  }} disabled={loading}>Approve</button><button type="button" className="danger-btn" onClick={() => {
-                    if (!window.confirm('Reject this appointment?')) return;
-                    run(async () => {
-                      await api.rejectAppointment(appt.appointmentId, {}, token);
-                      setInfo('Rejected');
-                      setOgcAppointments(ogcAppointments.map(a => a.appointmentId === appt.appointmentId ? { ...a, status: 'Rejected' } : a));
-                    });
-                  }} disabled={loading}>Reject</button></>)}{appt.status === 'Approved' && (<button type="button" onClick={() => {
-                    if (!window.confirm('Mark this appointment as complete?')) return;
-                    run(async () => {
-                      await api.completeAppointment(appt.appointmentId, {}, token);
-                      setInfo('Completed');
-                      setOgcAppointments(ogcAppointments.map(a => a.appointmentId === appt.appointmentId ? { ...a, status: 'Completed' } : a));
-                    });
-                  }} disabled={loading}>Mark Complete</button>)}</td></tr>))}</tbody></table></div>
-                ) : <p>No appointment requests yet.</p>}
-              </>
+              <ManageAppointments facilitator={facilitator} />
             )}
 
             {ogcTab === 'contacts' && (
               <>
                 <h2>Emergency Contacts</h2>
                 <p>Pre-configured emergency resources available to all students.</p>
+                <EmergencyContactsLegend />
                 {emergencyContacts.length === 0 && !loading ? <p className="info-message">Loading emergency contacts...</p> : null}
                 {emergencyContacts.length ? (
-                  <div className="contacts-grid">{emergencyContacts.map((contact) => (<article key={contact.contactId} className="contact-card"><div className="contact-header"><h3>{contact.name}</h3>{contact.available24_7 && <span className="badge">24/7</span>}</div><p><strong>Type:</strong> {contact.contactType}</p>{contact.phone && <p><strong>Phone:</strong> <a href={`tel:${contact.phone}`}>{contact.phone}</a></p>}{contact.email && <p><strong>Email:</strong> <a href={`mailto:${contact.email}`}>{contact.email}</a></p>}<p><strong>Priority:</strong> <span className={`priority-${contact.priority}`}>{contact.priority}</span></p></article>))}</div>
+                  <div className="contacts-grid">{emergencyContacts.map((contact) => (<EmergencyContactCard key={contact.contactId} contact={contact} />))}</div>
                 ) : <p>No contacts loaded.</p>}
               </>
             )}
@@ -1354,6 +1287,7 @@ export default function App() {
           <section className="card">
             <h2>Emergency Contacts & Hotlines</h2>
             <p>Access immediate mental health support and emergency services.</p>
+            <EmergencyContactsLegend />
             {emergencyContacts.length === 0 && !loading ? <p className="info-message">Loading emergency contacts...</p> : null}
             
             {emergencyContacts.length > 0 ? (
