@@ -5,8 +5,22 @@ import { nowIso } from '../../utils/helpers.js';
 
 const router = express.Router();
 
+// Get facilitator's slots
+router.get('/', auth, requireRole('ogc'), async (req, res) => {
+  const db = await readDb();
+  const slots = db.availabilitySlots.filter((s) => Number(s.facilitatorId) === Number(req.user.facilitatorId));
+
+  return res.json({
+    success: true,
+    data: {
+      totalSlots: slots.length,
+      slots
+    }
+  });
+});
+
 // Create availability slot
-router.post('/create', auth, requireRole('ogc'), async (req, res) => {
+router.post('/', auth, requireRole('ogc'), async (req, res) => {
   const { slotDate, startTime, endTime, maxSlots = 1 } = req.body || {};
   if (!slotDate || !startTime || !endTime) {
     return res.status(400).json({ success: false, message: 'slotDate, startTime, endTime are required.' });
@@ -33,20 +47,6 @@ router.post('/create', auth, requireRole('ogc'), async (req, res) => {
     data: {
       message: 'Availability slot created successfully.',
       slot
-    }
-  });
-});
-
-// Get facilitator's slots
-router.get('/list', auth, requireRole('ogc'), async (req, res) => {
-  const db = await readDb();
-  const slots = db.availabilitySlots.filter((s) => Number(s.facilitatorId) === Number(req.user.facilitatorId));
-
-  return res.json({
-    success: true,
-    data: {
-      totalSlots: slots.length,
-      slots
     }
   });
 });
