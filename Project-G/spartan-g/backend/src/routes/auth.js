@@ -48,7 +48,25 @@ router.post('/signup', async (req, res) => {
     });
 
     await writeDb(db);
-    return res.status(201).json({ success: true, message: 'Student signup successful.' });
+    
+    // Generate token for immediate access to consent form
+    const token = jwt.sign({ studentId, role: 'student' }, JWT_SECRET, { expiresIn: '12h' });
+    return res.status(201).json({ 
+      success: true, 
+      message: 'Student signup successful.',
+      data: {
+        token,
+        role: 'student',
+        student: {
+          studentId,
+          name,
+          college,
+          yearLevel: Number(yearLevel),
+          sex,
+          consentFlag: false
+        }
+      }
+    });
   }
 
   if (normalizedRole === 'ogc') {
@@ -72,7 +90,23 @@ router.post('/signup', async (req, res) => {
     });
 
     await writeDb(db);
-    return res.status(201).json({ success: true, message: 'OGC signup successful.' });
+    
+    // Generate token for immediate access
+    const token = jwt.sign({ facilitatorId: nextFacilitatorId, email, role: 'ogc' }, JWT_SECRET, { expiresIn: '12h' });
+    return res.status(201).json({ 
+      success: true, 
+      message: 'OGC signup successful.',
+      data: {
+        token,
+        role: 'ogc',
+        facilitator: {
+          facilitatorId: nextFacilitatorId,
+          name,
+          email,
+          assignedCollege
+        }
+      }
+    });
   }
 
   return res.status(400).json({ success: false, message: 'Unsupported role value.' });

@@ -7,6 +7,7 @@ import authRoutes from './routes/auth.js';
 import studentProfileRoutes from './routes/student/profile.js';
 import studentGawaRoutes from './routes/student/gawa.js';
 import studentGabayRoutes from './routes/student/gabay.js';
+import ogcDashboardRoutes from './routes/ogc/dashboard.js';
 import ogcProfileRoutes from './routes/ogc/profile.js';
 import ogcSlotsRoutes from './routes/ogc/slots.js';
 import ogcAppointmentsRoutes from './routes/ogc/appointments.js';
@@ -34,6 +35,7 @@ app.use('/api/student/gawa', studentGawaRoutes);
 app.use('/api/student/appointments', studentGabayRoutes);
 
 // OGC routes
+app.use('/api/ogc/dashboard', ogcDashboardRoutes);
 app.use('/api/ogc', ogcProfileRoutes);
 app.use('/api/ogc/availability', ogcSlotsRoutes);
 app.use('/api/ogc/appointments', ogcAppointmentsRoutes);

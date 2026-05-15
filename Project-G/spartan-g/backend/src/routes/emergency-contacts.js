@@ -10,7 +10,8 @@ router.get('/', async (req, res) => {
   return res.json({
     success: true,
     data: {
-      emergencyContacts: db.emergencyContacts
+      emergencyContacts: db.emergencyContacts,
+      contacts: db.emergencyContacts
     }
   });
 });

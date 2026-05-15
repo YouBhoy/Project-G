@@ -1,5 +1,13 @@
-import { useEffect, useMemo, useState } from 'react';
+﻿import { useEffect, useMemo, useState } from 'react';
 import { api } from './api.js';
+import BookAppointment from './components/student/BookAppointment.jsx';
+import ManageAppointments from './components/facilitator/ManageAppointments.jsx';
+import ManageSlots from './components/facilitator/ManageSlots.jsx';
+import EmergencyContactCard from './components/EmergencyContactCard.jsx';
+import EmergencyContactsLegend from './components/EmergencyContactsLegend.jsx';
+import SafetyPlan from './components/student/SafetyPlan.jsx';
+import MyAppointments from './components/student/MyAppointments.jsx';
+import DescriptiveAnalytics from './components/ogc/DescriptiveAnalytics.jsx';
 
 const studentModules = {
   gawa: {
@@ -70,6 +78,65 @@ function yesNo(value) {
   return value ? 'Yes' : 'No';
 }
 
+const wellnessVideos = [
+  {
+    videoId: 'AOaIuwR0wyQ',
+    title: 'Pag-unawa sa Anxiety',
+    source: 'PinoyPsych101',
+    description: 'Isang Tagalog na paliwanag tungkol sa anxiety at kung paano ito mas mahusay na maunawaan at mapangasiwaan.',
+    language: 'tagalog',
+    languageLabel: '🇵🇭 Tagalog'
+  },
+  {
+    videoId: '8Ex6D7OJQNw',
+    title: 'Paano Nauuwi sa Depression ang Anxiety Disorder?',
+    source: 'UNTV News and Rescue',
+    description: 'Tagalog explainer sa koneksyon ng anxiety at depression at bakit mahalagang makakuha ng maagang suporta.',
+    language: 'tagalog',
+    languageLabel: '🇵🇭 Tagalog'
+  },
+  {
+    videoId: 'R18LEjnpVQM',
+    title: 'Paano Pakalmahin ang Utak',
+    source: 'Doc Willie & Liza 2nd Channel',
+    description: 'Praktikal na Tagalog tips para sa stress, anxiety, at panic attack relief sa pang-araw-araw na buhay.',
+    language: 'tagalog',
+    languageLabel: '🇵🇭 Tagalog'
+  },
+  {
+    videoId: '6p_yaNFSYao',
+    title: 'I May Have Anxiety',
+    source: 'Psych2Go',
+    description: 'A clear look at common anxiety signs and why they deserve attention.',
+    language: 'english',
+    languageLabel: '🌐 English'
+  },
+  {
+    videoId: '3QIfkeA6HBY',
+    title: 'How to Stop Feeling Anxious About Anxiety',
+    source: 'Therapy in a Nutshell',
+    description: 'Practical guidance for reducing the fear cycle that can build around anxiety itself.',
+    language: 'english',
+    languageLabel: '🌐 English'
+  },
+  {
+    videoId: 'z-IR48Mb3W0',
+    title: 'What is Depression?',
+    source: 'TED-Ed',
+    description: 'An educational overview of depression, its causes, symptoms, and why seeking help matters for mental wellness.',
+    language: 'english',
+    languageLabel: '🌐 English'
+  },
+  {
+    videoId: 'WuyPuH9ojCE',
+    title: 'Managing Stress & Mental Health',
+    source: 'Wellness',
+    description: 'Tips for managing daily stress while protecting overall mental well-being.',
+    language: 'english',
+    languageLabel: '🌐 English'
+  }
+];
+
 export default function App() {
   const [mode, setMode] = useState('login');
   const [authRole, setAuthRole] = useState('student');
@@ -93,6 +160,9 @@ export default function App() {
   const [availableSlots, setAvailableSlots] = useState([]);
   const [studentAppointments, setStudentAppointments] = useState([]);
   const [showConsentModal, setShowConsentModal] = useState(false);
+  const [consentCheckboxTicked, setConsentCheckboxTicked] = useState(false);
+  const [wellnessVideoFilter, setWellnessVideoFilter] = useState('all');
+  const [activeWellnessVideoId, setActiveWellnessVideoId] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [info, setInfo] = useState('');
@@ -125,6 +195,13 @@ export default function App() {
 
   const canTakeAssessments = Boolean(student?.consentFlag);
   const sortedQuestions = useMemo(() => [...questions].sort((a, b) => a.itemNumber - b.itemNumber), [questions]);
+  const filteredWellnessVideos = useMemo(() => {
+    if (wellnessVideoFilter === 'all') {
+      return wellnessVideos;
+    }
+
+    return wellnessVideos.filter((video) => video.language === wellnessVideoFilter);
+  }, [wellnessVideoFilter]);
 
   useEffect(() => {
     if (!token) return;
@@ -218,7 +295,7 @@ export default function App() {
     if (activePage === 'emergency-contacts') {
       run(async () => {
         const data = await api.getEmergencyContacts();
-        setEmergencyContacts(data.contacts || []);
+        setEmergencyContacts(data.emergencyContacts || data.contacts || []);
       });
     }
   }, [activePage, token, sessionRole]);
@@ -248,7 +325,7 @@ export default function App() {
     if (ogcTab === 'contacts') {
       run(async () => {
         const result = await api.getEmergencyContacts();
-        setEmergencyContacts(result.contacts || []);
+        setEmergencyContacts(result.emergencyContacts || result.contacts || []);
       });
     }
   }, [ogcTab, token, sessionRole]);
@@ -343,17 +420,38 @@ export default function App() {
             assignedCollege: signupForm.assignedCollege || 'All'
           };
 
-      await api.signup(payload);
+      const data = await api.signup(payload);
       localStorage.setItem('spartan-g:last-signup-at', new Date().toISOString());
-      setMode('login');
-      setInfo('Account created. You can now log in.');
-      setLoginForm((prev) => ({
-        ...prev,
-        role: signupForm.role,
-        studentId: signupForm.role === 'student' ? signupForm.studentId : '',
-        email: signupForm.role === 'ogc' ? signupForm.email : '',
-        password: ''
-      }));
+
+      // For students, immediately log them in and show consent form
+      if (signupForm.role === 'student' && data?.token) {
+        setToken(data.token);
+        setSessionRole('student');
+        setStudent(data.student || null);
+        setFacilitator(null);
+        setMode('app');
+        setShowConsentModal(true); // Show consent form immediately
+        goToPage('consent');
+      } else if (signupForm.role === 'ogc' && data?.token) {
+        // For OGC facilitators, log them in and go to dashboard
+        setToken(data.token);
+        setSessionRole('ogc');
+        setFacilitator(data.facilitator || null);
+        setStudent(null);
+        setMode('app');
+        goToPage('dashboard');
+      } else {
+        // Fallback to login screen
+        setMode('login');
+        setInfo('Account created. You can now log in.');
+        setLoginForm((prev) => ({
+          ...prev,
+          role: signupForm.role,
+          studentId: signupForm.role === 'student' ? signupForm.studentId : '',
+          email: signupForm.role === 'ogc' ? signupForm.email : '',
+          password: ''
+        }));
+      }
     });
   }
 
@@ -374,6 +472,7 @@ export default function App() {
     run(async () => {
       const data = await api.setConsent(consent, token);
       setStudent((prev) => ({ ...prev, consentFlag: data.consentFlag }));
+      setConsentCheckboxTicked(false);
       setShowConsentModal(!data.consentFlag);
       if (data.consentFlag) goToPage('dass21');
     });
@@ -676,148 +775,19 @@ export default function App() {
                         </div>
                       ) : <p>No crisis alerts right now.</p>}
                     </article>
-
-                    <article className="summary-card full-width">
-                      <h3>Student Risk Overview</h3>
-                      {ogcDashboard.students?.length ? (
-                        <div className="ogc-table-wrap">
-                          <table className="ogc-table">
-                            <thead>
-                              <tr>
-                                <th>Pseudonym ID</th>
-                                <th>College</th>
-                                <th>Year</th>
-                                <th>Risk</th>
-                                <th>Trajectory</th>
-                                <th>Avg Mood</th>
-                                <th>Avg Energy</th>
-                                <th>Latest Assessment</th>
-                              </tr>
-                            </thead>
-                            <tbody>
-                              {ogcDashboard.students.map((row) => (
-                                <tr key={`${row.pseudoId}-${row.latestClassificationAt || 'none'}`}>
-                                  <td>{row.pseudoId}</td>
-                                  <td>{row.college}</td>
-                                  <td>{row.yearLevel}</td>
-                                  <td><span className={riskClassName(row.latestRiskLevel)}>{row.latestRiskLevel}</span></td>
-                                  <td>{row.latestTrajectory || 'Stable'}</td>
-                                  <td>{row.averageMood ?? '-'}</td>
-                                  <td>{row.averageEnergy ?? '-'}</td>
-                                  <td>{row.latestClassificationAt ? new Date(row.latestClassificationAt).toLocaleString() : '-'}</td>
-                                </tr>
-                              ))}
-                            </tbody>
-                          </table>
-                        </div>
-                      ) : <p>No student data in scope yet.</p>}
-                    </article>
+                    {/* New descriptive analytics component */}
+                    <DescriptiveAnalytics data={ogcDashboard} />
                   </>
                 )}
 
                 {/* Slots Tab */}
                 {ogcTab === 'slots' && (
-                  <>
-                    <article className="summary-card full-width">
-                      <h3>Manage Availability Slots</h3>
-                      <form className="form-row" onSubmit={(e) => { e.preventDefault(); }}>
-                        <div className="form-group">
-                          <label htmlFor="slot-date">Date</label>
-                          <input type="date" id="slot-date" />
-                        </div>
-                        <div className="form-group">
-                          <label htmlFor="slot-start">Start Time</label>
-                          <input type="time" id="slot-start" />
-                        </div>
-                        <div className="form-group">
-                          <label htmlFor="slot-end">End Time</label>
-                          <input type="time" id="slot-end" />
-                        </div>
-                        <div className="form-group">
-                          <label htmlFor="slot-duration">Duration (minutes)</label>
-                          <input type="number" id="slot-duration" min="15" step="15" defaultValue="30" />
-                        </div>
-                        <button type="submit">Add Slot</button>
-                      </form>
-
-                      <h4 style={{ marginTop: '2rem' }}>Available Slots</h4>
-                      {ogcAvailabilitySlots?.length ? (
-                        <div className="ogc-table-wrap">
-                          <table className="ogc-table">
-                            <thead>
-                              <tr>
-                                <th>Date</th>
-                                <th>Start Time</th>
-                                <th>End Time</th>
-                                <th>Duration</th>
-                                <th>Status</th>
-                                <th>Action</th>
-                              </tr>
-                            </thead>
-                            <tbody>
-                              {ogcAvailabilitySlots.map((slot, idx) => (
-                                <tr key={idx}>
-                                  <td>{slot.date}</td>
-                                  <td>{slot.startTime}</td>
-                                  <td>{slot.endTime}</td>
-                                  <td>{slot.duration} min</td>
-                                  <td>{slot.isBooked ? 'Booked' : 'Available'}</td>
-                                  <td><button type="button" className="muted-btn">Edit</button> <button type="button" className="muted-btn">Delete</button></td>
-                                </tr>
-                              ))}
-                            </tbody>
-                          </table>
-                        </div>
-                      ) : <p>No availability slots set yet.</p>}
-                    </article>
-                  </>
+                  <ManageSlots facilitator={facilitator} />
                 )}
 
                 {/* Appointments Tab */}
                 {ogcTab === 'appointments' && (
-                  <>
-                    <article className="summary-card full-width">
-                      <h3>Appointment Requests</h3>
-                      {ogcAppointments?.length ? (
-                        <div className="ogc-table-wrap">
-                          <table className="ogc-table">
-                            <thead>
-                              <tr>
-                                <th>Student ID</th>
-                                <th>Requested Date</th>
-                                <th>Requested Time</th>
-                                <th>Reason</th>
-                                <th>Status</th>
-                                <th>Action</th>
-                              </tr>
-                            </thead>
-                            <tbody>
-                              {ogcAppointments.map((apt, idx) => (
-                                <tr key={idx}>
-                                  <td>{apt.pseudoId || apt.studentId}</td>
-                                  <td>{apt.requestedDate}</td>
-                                  <td>{apt.requestedTime}</td>
-                                  <td>{apt.reason}</td>
-                                  <td><span className={`status-badge ${apt.status === 'approved' ? 'approved' : apt.status === 'rejected' ? 'rejected' : 'pending'}`}>{apt.status}</span></td>
-                                  <td>
-                                    {apt.status === 'pending' && (
-                                      <>
-                                        <button type="button" className="action-btn" onClick={() => { /* approve action */ }}>Approve</button>
-                                        <button type="button" className="muted-btn" onClick={() => { /* reject action */ }}>Reject</button>
-                                      </>
-                                    )}
-                                    {apt.status === 'approved' && (
-                                      <button type="button" className="muted-btn" onClick={() => { /* mark complete */ }}>Mark Complete</button>
-                                    )}
-                                  </td>
-                                </tr>
-                              ))}
-                            </tbody>
-                          </table>
-                        </div>
-                      ) : <p>No appointment requests.</p>}
-                    </article>
-                  </>
+                  <ManageAppointments facilitator={facilitator} />
                 )}
 
                 {/* Emergency Contacts Tab */}
@@ -888,78 +858,21 @@ export default function App() {
             )}
 
             {ogcTab === 'slots' && (
-              <>
-                <h2>Manage Availability Slots</h2>
-                <p>Create time slots for students to book counseling appointments.</p>
-                <div className="form-group">
-                  <input type="date" placeholder="Slot Date" id="slot-date" />
-                  <input type="time" placeholder="Start Time" id="slot-start" />
-                  <input type="time" placeholder="End Time" id="slot-end" />
-                  <input type="number" placeholder="Max Slots" defaultValue="5" id="slot-max" min="1" />
-                  <button type="button" onClick={() => run(async () => {
-                    const date = document.getElementById('slot-date').value;
-                    const start = document.getElementById('slot-start').value;
-                    const end = document.getElementById('slot-end').value;
-                    const max = parseInt(document.getElementById('slot-max').value, 10);
-                    if (!date || !start || !end) { setError('All fields required'); return; }
-                    const result = await api.createAvailabilitySlot({ slotDate: date, startTime: start, endTime: end, maxSlots: max }, token);
-                    setInfo(`Slot created: ${result.slotId}`);
-                  })} disabled={loading}>Create Slot</button>
-                </div>
-                <h3>Your Availability Slots</h3>
-                {ogcAvailabilitySlots.length === 0 && !loading ? <p className="info-message">Loading availability slots...</p> : null}
-                {ogcAvailabilitySlots.length ? (
-                  <div className="ogc-table-wrap"><table className="ogc-table"><thead><tr><th>Date</th><th>Start</th><th>End</th><th>Capacity</th><th>Booked</th><th>Status</th><th>Action</th></tr></thead><tbody>{ogcAvailabilitySlots.map((slot) => (<tr key={slot.slotId}><td>{slot.slotDate}</td><td>{slot.startTime}</td><td>{slot.endTime}</td><td>{slot.maxSlots}</td><td>{slot.bookedCount}</td><td>{slot.status}</td><td><button type="button" className="danger-btn" onClick={() => {
-                    if (!window.confirm(`Delete slot on ${slot.slotDate}?`)) return;
-                    run(async () => {
-                      await api.deleteAvailabilitySlot(slot.slotId, token);
-                      setInfo('Slot deleted');
-                      setOgcAvailabilitySlots(ogcAvailabilitySlots.filter(s => s.slotId !== slot.slotId));
-                    });
-                  }} disabled={loading}>Delete</button></td></tr>))}</tbody></table></div>
-                ) : <p>No slots created yet.</p>}
-              </>
+              <ManageSlots facilitator={facilitator} />
             )}
 
             {ogcTab === 'appointments' && (
-              <>
-                <h2>Manage Appointments</h2>
-                <p>Review and respond to student appointment requests.</p>
-                {ogcAppointments.length === 0 && !loading ? <p className="info-message">Loading appointments...</p> : null}
-                {ogcAppointments.length ? (
-                  <div className="ogc-table-wrap"><table className="ogc-table"><thead><tr><th>Student</th><th>Date</th><th>Time</th><th>Status</th><th>Requested</th><th>Action</th></tr></thead><tbody>{ogcAppointments.map((appt) => (<tr key={appt.appointmentId}><td>{appt.pseudoId || 'N/A'}</td><td>{appt.slotDate || '-'}</td><td>{appt.startTime || '-'}</td><td><span className={`status-${appt.status.toLowerCase()}`}>{appt.status}</span></td><td>{new Date(appt.requestedAt).toLocaleString()}</td><td>{appt.status === 'Requested' && (<><button type="button" className="success-btn" onClick={() => {
-                    if (!window.confirm('Approve this appointment?')) return;
-                    run(async () => {
-                      await api.approveAppointment(appt.appointmentId, {}, token);
-                      setInfo('Approved');
-                      setOgcAppointments(ogcAppointments.map(a => a.appointmentId === appt.appointmentId ? { ...a, status: 'Approved' } : a));
-                    });
-                  }} disabled={loading}>Approve</button><button type="button" className="danger-btn" onClick={() => {
-                    if (!window.confirm('Reject this appointment?')) return;
-                    run(async () => {
-                      await api.rejectAppointment(appt.appointmentId, {}, token);
-                      setInfo('Rejected');
-                      setOgcAppointments(ogcAppointments.map(a => a.appointmentId === appt.appointmentId ? { ...a, status: 'Rejected' } : a));
-                    });
-                  }} disabled={loading}>Reject</button></>)}{appt.status === 'Approved' && (<button type="button" onClick={() => {
-                    if (!window.confirm('Mark this appointment as complete?')) return;
-                    run(async () => {
-                      await api.completeAppointment(appt.appointmentId, {}, token);
-                      setInfo('Completed');
-                      setOgcAppointments(ogcAppointments.map(a => a.appointmentId === appt.appointmentId ? { ...a, status: 'Completed' } : a));
-                    });
-                  }} disabled={loading}>Mark Complete</button>)}</td></tr>))}</tbody></table></div>
-                ) : <p>No appointment requests yet.</p>}
-              </>
+              <ManageAppointments facilitator={facilitator} />
             )}
 
             {ogcTab === 'contacts' && (
               <>
                 <h2>Emergency Contacts</h2>
                 <p>Pre-configured emergency resources available to all students.</p>
+                <EmergencyContactsLegend />
                 {emergencyContacts.length === 0 && !loading ? <p className="info-message">Loading emergency contacts...</p> : null}
                 {emergencyContacts.length ? (
-                  <div className="contacts-grid">{emergencyContacts.map((contact) => (<article key={contact.contactId} className="contact-card"><div className="contact-header"><h3>{contact.name}</h3>{contact.available24_7 && <span className="badge">24/7</span>}</div><p><strong>Type:</strong> {contact.contactType}</p>{contact.phone && <p><strong>Phone:</strong> <a href={`tel:${contact.phone}`}>{contact.phone}</a></p>}{contact.email && <p><strong>Email:</strong> <a href={`mailto:${contact.email}`}>{contact.email}</a></p>}<p><strong>Priority:</strong> <span className={`priority-${contact.priority}`}>{contact.priority}</span></p></article>))}</div>
+                  <div className="contacts-grid">{emergencyContacts.map((contact) => (<EmergencyContactCard key={contact.contactId} contact={contact} />))}</div>
                 ) : <p>No contacts loaded.</p>}
               </>
             )}
@@ -1042,16 +955,157 @@ export default function App() {
           )}
 
           {showConsentModal ? (
-            <div className="modal-backdrop" role="dialog" aria-modal="true" aria-label="Consent Required">
-              <section className="modal-card">
-                <div className="modal-header"><h2>Digital Informed Consent (Required)</h2></div>
-                <div className="modal-body">
-                  <p>Before using DASS-21, PHQ-9, GAD-7, or ESM Check-in, you must acknowledge digital informed consent.</p>
-                  <p>You may withdraw anytime. If withdrawn, assessment access will be blocked until you consent again.</p>
-                  <p>Status: <strong>{student?.consentFlag ? 'Consented' : 'Not Consented'}</strong></p>
-                  <div className="row">
-                    <button type="button" onClick={() => submitConsent(true)} disabled={loading}>I Consent</button>
-                    <button type="button" className="muted-btn" onClick={() => submitConsent(false)} disabled={loading}>Withdraw Consent</button>
+            <div className="modal-backdrop" role="dialog" aria-modal="true" aria-label="Digital Informed Consent">
+              <section className="modal-card consent-modal">
+                <div className="modal-header consent-modal-header">
+                  <h2>Digital Informed Consent (Required)</h2>
+                  <p className="consent-subtitle">BatStateU Mental Health Assessment System - Data Collection & Processing Agreement</p>
+                </div>
+                <div className="modal-body consent-modal-body">
+                  <div className="consent-status">
+                    <span className="status-label">Consent Status:</span>
+                    <span className={`status-badge ${student?.consentFlag ? 'consented' : 'not-consented'}`}>
+                      {student?.consentFlag ? 'Consented' : 'Not Consented'}
+                    </span>
+                  </div>
+
+                  <div className="consent-content">
+                    <section className="consent-section">
+                      <h3>📋 Purpose of Data Collection</h3>
+                      <p>
+                        Responses from mental health assessments (DASS-21, PHQ-9, GAD-7, and ESM Check-in) will be collected and processed to:
+                      </p>
+                      <ul>
+                        <li>Monitor your mental health and well-being during your academic journey</li>
+                        <li>Provide personalized referrals to campus counseling and support services</li>
+                        <li>Conduct academic research to improve student mental health programs</li>
+                        <li>Enhance wellness initiatives and support services at Batangas State University</li>
+                      </ul>
+                    </section>
+
+                    <section className="consent-section">
+                      <h3>📊 What Data is Collected</h3>
+                      <p>The following personal data will be collected and processed:</p>
+                      <ul>
+                        <li><strong>Assessment Responses:</strong> Your answers to DASS-21, PHQ-9, GAD-7, and ESM questions</li>
+                        <li><strong>Timestamps:</strong> When assessments were completed</li>
+                        <li><strong>User Identifiers:</strong> Your student ID, name, email, and college affiliation</li>
+                        <li><strong>Derived Scores:</strong> Mental health risk classifications and wellness metrics calculated from your responses</li>
+                        <li><strong>Appointment Data:</strong> Booking and attendance records for counseling sessions (if applicable)</li>
+                      </ul>
+                    </section>
+
+                    <section className="consent-section">
+                      <h3>💼 How Data Will Be Used</h3>
+                      <ul>
+                        <li>Data will be used <strong>only for the stated purposes</strong> above</li>
+                        <li>Individual assessment results will <strong>not be sold, traded, or shared with unauthorized third parties</strong></li>
+                        <li>Data may be used for <strong>aggregate and anonymized research</strong> to improve university wellness programs</li>
+                        <li>Results may be shared with campus counseling services <strong>only when necessary to provide support</strong></li>
+                        <li>In cases of immediate risk (crisis), results may be shared with emergency services and campus authorities</li>
+                      </ul>
+                    </section>
+
+                    <section className="consent-section">
+                      <h3>🔒 Data Confidentiality & Security</h3>
+                      <p>
+                        Batangas State University employs appropriate technical and organizational measures to protect your data, including:
+                      </p>
+                      <ul>
+                        <li>Encryption of data in transit and at rest</li>
+                        <li>Secure authentication and access controls</li>
+                        <li>Regular security audits and updates</li>
+                        <li><strong>Only authorized personnel</strong> (designated mental health professionals, counselors, and administrators) may access your individual assessment results</li>
+                        <li>Data retention policies compliant with Philippine regulations</li>
+                      </ul>
+                    </section>
+
+                    <section className="consent-section">
+                      <h3>⚖️ Your Rights Under the Data Privacy Act of 2012 (Republic Act No. 10173)</h3>
+                      <p>As a data subject in the Philippines, you have the following rights:</p>
+                      <ul>
+                        <li><strong>Right to be Informed:</strong> You have the right to know what personal data is being collected and how it will be used</li>
+                        <li><strong>Right to Access:</strong> You may request access to your personal data at any time</li>
+                        <li><strong>Right to Correct:</strong> You may request correction of inaccurate or incomplete data</li>
+                        <li><strong>Right to Object:</strong> You may object to the processing of your data for specific purposes</li>
+                        <li><strong>Right to Erase or Block:</strong> You may request erasure or blocking of your data under certain circumstances</li>
+                        <li><strong>Right to Data Portability:</strong> You may request your data in a structured, commonly used format</li>
+                        <li><strong>Right to Lodge a Complaint:</strong> You may file a complaint with the National Privacy Commission (NPC) regarding violations of your data privacy rights</li>
+                      </ul>
+                    </section>
+
+                    <section className="consent-section">
+                      <h3>✋ Voluntary Participation & Withdrawal</h3>
+                      <ul>
+                        <li>Your consent to participate in the assessment system is <strong>completely voluntary</strong></li>
+                        <li>You may <strong>withdraw your consent at any time</strong> without penalty or loss of benefits</li>
+                        <li>If you withdraw consent, <strong>access to assessments will be restricted</strong> until you provide consent again</li>
+                        <li>Withdrawing consent does not affect the lawfulness of processing before withdrawal</li>
+                        <li>You may manage your consent status at any time via the "Manage Consent" button on the dashboard</li>
+                      </ul>
+                    </section>
+
+                    <section className="consent-section">
+                      <h3>📞 Contact & Data Protection Officer</h3>
+                      <p>For privacy-related concerns, requests, or to exercise your rights under the Data Privacy Act, please contact:</p>
+                      <div className="dpo-contact">
+                        <p>
+                          <strong>BatStateU Data Protection Officer (DPO)</strong><br/>
+                          Batangas State University<br/>
+                          Email: <a href="mailto:privacy@batstateu.edu.ph">privacy@batstateu.edu.ph</a><br/>
+                          Office: Records Management Office<br/>
+                          <br/>
+                          <strong>National Privacy Commission (NPC)</strong><br/>
+                          <a href="https://privacy.gov.ph" target="_blank" rel="noopener noreferrer">https://privacy.gov.ph</a><br/>
+                          Toll-free: 1-646-472-5555
+                        </p>
+                      </div>
+                    </section>
+
+                    <section className="consent-section">
+                      <h3>📝 Policy References</h3>
+                      <p>
+                        This consent form is based on:
+                      </p>
+                      <ul>
+                        <li>Data Privacy Act of 2012 (Republic Act No. 10173) of the Philippines</li>
+                        <li><a href="https://batstateu.edu.ph/privacy-policy/" target="_blank" rel="noopener noreferrer">BatStateU Privacy Policy</a></li>
+                        <li>BatStateU Institutional Review Board (IRB) guidelines for research ethics</li>
+                      </ul>
+                    </section>
+                  </div>
+
+                  <div className="consent-footer">
+                    <div className="checkbox-group">
+                      <label className="checkbox-label">
+                        <input 
+                          type="checkbox" 
+                          checked={consentCheckboxTicked}
+                          onChange={(e) => setConsentCheckboxTicked(e.target.checked)}
+                          className="consent-checkbox"
+                        />
+                        <span>I have read and understood the above terms and I <strong>voluntarily give my consent</strong> to the collection and processing of my personal data as described.</span>
+                      </label>
+                    </div>
+
+                    <div className="consent-actions">
+                      <button 
+                        type="button" 
+                        onClick={() => submitConsent(true)} 
+                        disabled={loading || !consentCheckboxTicked}
+                        className="consent-btn consent-agree"
+                      >
+                        I Consent
+                      </button>
+                      <button 
+                        type="button" 
+                        className="consent-btn consent-withdraw" 
+                        onClick={() => submitConsent(false)} 
+                        disabled={loading}
+                      >
+                        Withdraw Consent
+                      </button>
+                    </div>
                   </div>
                 </div>
               </section>
@@ -1190,115 +1244,18 @@ export default function App() {
         ) : null}
 
         {activePage === 'book-appointment' ? (
-          <section className="card">
-            <h2>Book an Appointment with OGC</h2>
-            <p>Find available counseling slots and book your appointment.</p>
-            {availableSlots.length === 0 && !loading ? <p className="info-message">Loading available slots...</p> : null}
-            
-            {availableSlots.length > 0 ? (
-              <>
-                <h3>Available Slots</h3>
-                <div className="ogc-table-wrap">
-                  <table className="ogc-table">
-                    <thead>
-                      <tr>
-                        <th>Date</th>
-                        <th>Time</th>
-                        <th>Facilitator</th>
-                        <th>Action</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {availableSlots.map((slot) => (
-                        <tr key={slot.slotId}>
-                          <td>{slot.slotDate}</td>
-                          <td>{slot.startTime} - {slot.endTime}</td>
-                          <td>{slot.facilitatorName}</td>
-                          <td>
-                            <button type="button" className="success-btn" onClick={() => {
-                              const isAlreadyBooked = studentAppointments.some(a => a.slotId === slot.slotId && ['Requested', 'Approved'].includes(a.status));
-                              if (isAlreadyBooked) {
-                                setError('You already have an active appointment for this slot.');
-                                return;
-                              }
-                              if (!window.confirm(`Book appointment on ${slot.slotDate} from ${slot.startTime} to ${slot.endTime}?`)) return;
-                              run(async () => {
-                                await api.bookAppointment({ slotId: slot.slotId }, token);
-                                setInfo('Appointment booked successfully!');
-                                setAvailableSlots([]);
-                                const data = await api.getStudentAppointments(token);
-                                setStudentAppointments(data.appointments || []);
-                              });
-                            }} disabled={loading}>Book</button>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              </>
-            ) : availableSlots.length === 0 && !loading ? (
-              <p className="hint">No slots loaded. Click "View Available Slots" to load them.</p>
-            ) : null}
-          </section>
+          <BookAppointment student={student} />
         ) : null}
 
         {activePage === 'my-appointments' ? (
-          <section className="card">
-            <h2>My Appointments</h2>
-            <p>View and manage your counseling appointments.</p>
-            {studentAppointments.length === 0 && !loading ? <p className="info-message">Loading your appointments...</p> : null}
-            
-            {studentAppointments.length > 0 ? (
-              <>
-                <h3>Your Appointments</h3>
-                <div className="ogc-table-wrap">
-                  <table className="ogc-table">
-                    <thead>
-                      <tr>
-                        <th>Date</th>
-                        <th>Time</th>
-                        <th>Status</th>
-                        <th>Requested</th>
-                        <th>Action</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {studentAppointments.map((appt) => (
-                        <tr key={appt.appointmentId}>
-                          <td>{appt.slotDate || '-'}</td>
-                          <td>{appt.startTime || '-'} {appt.endTime ? `- ${appt.endTime}` : ''}</td>
-                          <td><span className={`status-${appt.status.toLowerCase()}`}>{appt.status}</span></td>
-                          <td>{new Date(appt.requestedAt).toLocaleString()}</td>
-                          <td>
-                            {appt.status === 'Requested' && (
-                              <button type="button" className="danger-btn" onClick={() => {
-                                if (!window.confirm('Cancel this appointment?')) return;
-                                run(async () => {
-                                  await api.cancelAppointment(appt.appointmentId, token);
-                                  setInfo('Appointment cancelled');
-                                  setStudentAppointments(studentAppointments.filter(a => a.appointmentId !== appt.appointmentId));
-                                });
-                              }} disabled={loading}>Cancel</button>
-                            )}
-                            {appt.status !== 'Requested' && <span className="hint">Cannot cancel {appt.status.toLowerCase()}</span>}
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              </>
-            ) : studentAppointments.length === 0 && !loading ? (
-              <p className="hint">No appointments yet. Click "Load My Appointments" to check.</p>
-            ) : null}
-          </section>
+          <MyAppointments student={student} />
         ) : null}
 
         {activePage === 'emergency-contacts' ? (
           <section className="card">
             <h2>Emergency Contacts & Hotlines</h2>
             <p>Access immediate mental health support and emergency services.</p>
+            <EmergencyContactsLegend />
             {emergencyContacts.length === 0 && !loading ? <p className="info-message">Loading emergency contacts...</p> : null}
             
             {emergencyContacts.length > 0 ? (
@@ -1316,26 +1273,90 @@ export default function App() {
                   </article>
                 ))}
               </div>
-            ) : emergencyContacts.length === 0 && !loading ? (
-              <p className="hint">Click "View Emergency Contacts" to load the list.</p>
-            ) : null}
+            ) : <p className="hint">No emergency contacts loaded yet.</p>}
           </section>
         ) : null}
 
         {activePage === 'wellness-resources' ? (
           <section className="card">
-            <h2>Wellness Resources & Psychoeducation</h2>
-            <p>Access self-help content, coping strategies, and wellness materials.</p>
-            <p className="hint">⚠️ GINHAWA module coming soon. This feature is under development.</p>
+            <div className="wellness-section-header">
+              <h2>🎥 Wellness Video Resources</h2>
+              <p>Click a thumbnail to play the video inline without leaving the page.</p>
+            </div>
+
+            <div className="video-filter-bar" role="tablist" aria-label="Wellness video language filters">
+              <button
+                type="button"
+                className={`video-filter-btn ${wellnessVideoFilter === 'all' ? 'active' : ''}`}
+                onClick={() => setWellnessVideoFilter('all')}
+              >
+                All
+              </button>
+              <button
+                type="button"
+                className={`video-filter-btn ${wellnessVideoFilter === 'tagalog' ? 'active' : ''}`}
+                onClick={() => setWellnessVideoFilter('tagalog')}
+              >
+                🇵🇭 Tagalog
+              </button>
+              <button
+                type="button"
+                className={`video-filter-btn ${wellnessVideoFilter === 'english' ? 'active' : ''}`}
+                onClick={() => setWellnessVideoFilter('english')}
+              >
+                🌐 English
+              </button>
+            </div>
+
+            <div className="wellness-video-grid">
+              {filteredWellnessVideos.map((video) => {
+                const isPlaying = activeWellnessVideoId === video.videoId;
+                const thumbnailUrl = `https://img.youtube.com/vi/${video.videoId}/hqdefault.jpg`;
+                const embedUrl = `https://www.youtube.com/embed/${video.videoId}?rel=0&modestbranding=1`;
+
+                return (
+                  <article key={video.videoId} className="wellness-video-card card">
+                    <button
+                      type="button"
+                      className="video-thumbnail-button"
+                      onClick={() => setActiveWellnessVideoId(video.videoId)}
+                      aria-label={`Play ${video.title} by ${video.source}`}
+                    >
+                      {isPlaying ? (
+                        <div className="video-frame-wrap">
+                          <iframe
+                            src={embedUrl}
+                            title={video.title}
+                            loading="lazy"
+                            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                            allowFullScreen
+                          />
+                        </div>
+                      ) : (
+                        <div className="video-thumb-shell">
+                          <img src={thumbnailUrl} alt={`${video.title} thumbnail`} className="video-thumb-image" />
+                          <span className="video-play-badge" aria-hidden="true">▶</span>
+                        </div>
+                      )}
+                    </button>
+
+                    <div className="wellness-video-meta">
+                      <div className="video-title-row">
+                        <h3>{video.title}</h3>
+                        <span className={`language-badge ${video.language}`}>{video.languageLabel}</span>
+                      </div>
+                      <p className="video-source">by {video.source}</p>
+                      <p className="video-description">{video.description}</p>
+                    </div>
+                  </article>
+                );
+              })}
+            </div>
           </section>
         ) : null}
 
         {activePage === 'safety-plan' ? (
-          <section className="card">
-            <h2>Digital Safety Plan</h2>
-            <p>Create and manage your personal crisis planning and safety strategies.</p>
-            <p className="hint">⚠️ Safety planning feature coming soon. This feature is under development.</p>
-          </section>
+          <SafetyPlan />
         ) : null}
 
         {error ? <p className="error global-error">{error}</p> : null}
