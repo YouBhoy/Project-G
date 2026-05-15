@@ -167,3 +167,13 @@ cd E:\AndroidSDK\platform-tools
 4. Update the mobile API IP if needed
 5. Build and install the APK
 6. Sign up or log in on the phone
+
+If you want a one-click desktop launcher, use [start-all.bat](start-all.bat) from the `spartan-g` folder. Set `MOBILE_API_BASE_URL` first if you are targeting a physical phone instead of the emulator.
+
+Local Setup Checklist (quick):
+
+- Install Node.js, npm, Flutter (for mobile), and XAMPP with MySQL.
+- Clone the repo and run `npm install` in `backend/`, `server/`, and `student-portal/`.
+- Import `backend/sql/setup-spartan-g.sql` into phpMyAdmin and copy `.env.example` → `.env` in `backend/` with local MySQL credentials.
+- If using calendar features, add `server/service-account.json` and create `server/.env` with `CALENDAR_ID` and optionally `PORT=3002`.
+- For physical Android testing, set `MOBILE_API_BASE_URL` to your machine's LAN IP (e.g. `http://192.168.1.10:3001/api`) before running `start-all.bat`.

@@ -6,6 +6,15 @@ This initial build includes:
 
 ## Run
 
+If you want everything in one shot, run [start-all.bat](start-all.bat) from the `spartan-g` folder. It opens the backend, calendar server, student portal, and Flutter app in separate windows.
+
+**Local Setup Checklist (quick):**
+- **Install tooling:** Node.js + npm, Flutter (if using mobile), XAMPP MySQL.
+- **Database:** Import `backend/sql/setup-spartan-g.sql` into phpMyAdmin and create `backend/.env` from `.env.example` with your local MySQL values and `PORT=3001`.
+- **Secrets (do NOT commit):** create `server/.env` with `CALENDAR_ID` and put `server/service-account.json` (Google service account) into `server/` if using calendar features.
+- **Install deps:** run `npm install` in `backend/`, `server/`, and `student-portal/`; run `flutter pub get` in `mobile-app/`.
+- **Run:** use `start-all.bat` or run services individually; for a physical phone, set `MOBILE_API_BASE_URL` to your PC LAN IP before running.
+
 ### 1) Backend
 
 ```powershell
