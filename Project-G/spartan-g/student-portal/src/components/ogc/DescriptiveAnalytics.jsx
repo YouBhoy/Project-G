@@ -18,7 +18,6 @@ function Sparkline({ values, width = 200, height = 40, stroke = '#8B0000' }) {
 }
 
 export default function DescriptiveAnalytics({ data }) {
-  const risk = data.summary?.riskCounts || {};
   const histogram = data.descriptive?.moodHistogram || [];
   const daily = data.descriptive?.daily || [];
   const cohorts = data.descriptive?.cohortComparisons || {};
@@ -28,11 +27,11 @@ export default function DescriptiveAnalytics({ data }) {
 
   return (
     <div className="descriptive-wrap">
-      <section className="metrics-row">
-        <div className="metric-card"><h4>Total Students</h4><p>{data.summary?.totalStudents ?? '-'}</p></div>
-        <div className="metric-card"><h4>Critical</h4><p>{data.summary?.criticalCount ?? '-'}</p></div>
-        <div className="metric-card"><h4>High Risk</h4><p>{data.summary?.riskCounts?.High ?? 0}</p></div>
-        <div className="metric-card"><h4>Median Mood</h4><p>{Math.round((data.descriptive?.moodPercentiles?.p50 || 0) * 100) / 100}</p></div>
+      <section className="median-row">
+        <div className="median-card">
+          <div className="median-label">Median Mood</div>
+          <div className="median-value">{Math.round((data.descriptive?.moodPercentiles?.p50 || 0) * 100) / 100}</div>
+        </div>
       </section>
 
       <section className="viz-row">
@@ -42,10 +41,11 @@ export default function DescriptiveAnalytics({ data }) {
             {['Low','Moderate','High','Crisis'].map((k)=>{
               const v = data.summary?.riskCounts?.[k] || 0;
               const pct = Math.round((v / Math.max(1, data.summary?.totalStudents || 1)) * 100);
+              const cls = `risk-bar-inner ${k.toLowerCase()}`;
               return (
                 <div key={k} className="risk-row">
                   <div className="risk-label">{k}</div>
-                  <div className="risk-bar-outer"><div className="risk-bar-inner" style={{ width: `${pct}%` }}></div></div>
+                  <div className="risk-bar-outer"><div className={cls} style={{ width: `${pct}%` }}></div></div>
                   <div className="risk-value">{v}</div>
                 </div>
               );
@@ -55,10 +55,10 @@ export default function DescriptiveAnalytics({ data }) {
 
         <article className="viz-card">
           <h5>Mood Histogram (0–10)</h5>
-          <div className="histogram">
+          <div className="histogram" role="img" aria-label="Mood histogram">
             {histogram.map((count, idx)=> (
               <div key={idx} className="hist-bar" title={`${idx}: ${count}`}>
-                <div className="hist-fill" style={{ height: `${Math.round((count/totalHist)*100)}%` }}></div>
+                <div className="hist-fill" style={{ height: `${Math.round((count/totalHist)*100)}%`, background: '#C0392B' }}></div>
                 <div className="hist-label">{idx}</div>
               </div>
             ))}
@@ -67,8 +67,8 @@ export default function DescriptiveAnalytics({ data }) {
 
         <article className="viz-card">
           <h5>30-day Mood Trend</h5>
-          <Sparkline values={daily.map(d => d.avgMood)} width={300} height={60} />
-          <div className="trend-meta">Avg points: {daily.reduce((s,d)=>s+(d.avgMood||0),0).toFixed(1)}</div>
+          <div className="sparkline-wrap"><Sparkline values={daily.map(d => d.avgMood)} width={400} height={80} stroke="#C0392B" /></div>
+          <div className="trend-meta">Avg points: {daily.length ? (daily.reduce((s,d)=>s+(d.avgMood||0),0)/daily.length).toFixed(1) : '-'}</div>
         </article>
       </section>
 

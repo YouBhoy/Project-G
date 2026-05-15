@@ -719,48 +719,39 @@ export default function App() {
         </header>
 
         <main className="shell app-shell">
-          <header className="topbar card">
-            <div>
-              <h1>OGC Facilitator Dashboard</h1>
-              <p>{facilitator?.name} ({facilitator?.email})</p>
-              <p>Scope: {facilitator?.assignedCollege || 'All'}</p>
-            </div>
-          </header>
+          <div className="content-area ogc-content-area">
+            <header className="topbar card ogc-top-panel">
+              <div className="ogc-top-copy">
+                <h1>OGC Facilitator Dashboard</h1>
+                <p>{facilitator?.name} ({facilitator?.email})</p>
+                <p>Scope: {facilitator?.assignedCollege || 'All'}</p>
+              </div>
 
-          <nav className="ogc-tabs card">
-            <button type="button" className={`tab-btn ${ogcTab === 'analytics' ? 'active' : ''}`} onClick={() => setOgcTab('analytics')}>Analytics</button>
-            <button type="button" className={`tab-btn ${ogcTab === 'slots' ? 'active' : ''}`} onClick={() => setOgcTab('slots')}>Manage Slots</button>
-            <button type="button" className={`tab-btn ${ogcTab === 'appointments' ? 'active' : ''}`} onClick={() => setOgcTab('appointments')}>Appointments</button>
-            <button type="button" className={`tab-btn ${ogcTab === 'contacts' ? 'active' : ''}`} onClick={() => setOgcTab('contacts')}>Emergency Contacts</button>
-          </nav>
+              <div className="ogc-top-actions">
+                <button type="button" className="danger-btn load-analytics" onClick={refreshOgcDashboard} disabled={loading}>{loading ? 'Refreshing...' : 'Load Analytics'}</button>
+              </div>
 
-          <section className="card">
-            {ogcTab === 'analytics' && (
-              <>
-                <h2>Pseudonymized Student Analytics</h2>
-                <p>Student identities are hidden by default. Identity is only revealed for Crisis-level contact action.</p>
-                <button type="button" onClick={refreshOgcDashboard} disabled={loading}>{loading ? 'Refreshing...' : 'Load Analytics'}</button>
-
-            {ogcDashboard ? (
-              <div className="dashboard-wrap">
-                {/* Tab Navigation */}
-                <div className="ogc-tabs">
-                  <button className={`tab-btn ${ogcTab === 'analytics' ? 'active' : ''}`} onClick={() => setOgcTab('analytics')}>Analytics</button>
-                  <button className={`tab-btn ${ogcTab === 'slots' ? 'active' : ''}`} onClick={() => setOgcTab('slots')}>Slots</button>
-                  <button className={`tab-btn ${ogcTab === 'appointments' ? 'active' : ''}`} onClick={() => setOgcTab('appointments')}>Appointments</button>
-                  <button className={`tab-btn ${ogcTab === 'contacts' ? 'active' : ''}`} onClick={() => setOgcTab('contacts')}>Emergency Contacts</button>
+              <nav className="module-pages-nav ogc-tabs-panel" aria-label="OGC dashboard tabs">
+                <div className="pages-list ogc-pages-list">
+                  <button type="button" className={`page-item ${ogcTab === 'analytics' ? 'active' : ''}`} onClick={() => setOgcTab('analytics')}>Analytics</button>
+                  <button type="button" className={`page-item ${ogcTab === 'slots' ? 'active' : ''}`} onClick={() => setOgcTab('slots')}>Slots</button>
+                  <button type="button" className={`page-item ${ogcTab === 'appointments' ? 'active' : ''}`} onClick={() => setOgcTab('appointments')}>Appointments</button>
+                  <button type="button" className={`page-item ${ogcTab === 'contacts' ? 'active' : ''}`} onClick={() => setOgcTab('contacts')}>Emergency Contacts</button>
                 </div>
+              </nav>
+            </header>
 
-                {/* Analytics Tab */}
-                {ogcTab === 'analytics' && (
-                  <>
+            <section className="card ogc-content-card">
+              {ogcTab === 'analytics' && (
+                ogcDashboard ? (
+                  <div className="dashboard-wrap ogc-dashboard-wrap">
                     <div className="hero-metrics">
                       <article className="metric-card"><h3>Total Students</h3><p>{ogcDashboard.summary?.totalStudents || 0}</p></article>
                       <article className="metric-card"><h3>Critical Alerts</h3><p>{ogcDashboard.summary?.criticalCount || 0}</p></article>
                       <article className="metric-card"><h3>High Risk</h3><p>{ogcDashboard.summary?.riskCounts?.High || 0}</p></article>
                     </div>
 
-                    <article className="summary-card full-width">
+                    <article className="summary-card full-width ogc-critical-card">
                       <h3>Critical Awareness Queue</h3>
                       {ogcDashboard.criticalAlerts?.length ? (
                         <div className="ogc-list">
@@ -773,110 +764,35 @@ export default function App() {
                             </div>
                           ))}
                         </div>
-                      ) : <p>No crisis alerts right now.</p>}
+                      ) : <p className="empty-state">No crisis alerts right now.</p>}
                     </article>
-                    {/* New descriptive analytics component */}
+
                     <DescriptiveAnalytics data={ogcDashboard} />
-                  </>
-                )}
+                  </div>
+                ) : <p>Load the dashboard to see anonymized analytics.</p>
+              )}
 
-                {/* Slots Tab */}
-                {ogcTab === 'slots' && (
-                  <ManageSlots facilitator={facilitator} />
-                )}
+              {ogcTab === 'slots' && (
+                <ManageSlots facilitator={facilitator} />
+              )}
 
-                {/* Appointments Tab */}
-                {ogcTab === 'appointments' && (
-                  <ManageAppointments facilitator={facilitator} />
-                )}
+              {ogcTab === 'appointments' && (
+                <ManageAppointments facilitator={facilitator} />
+              )}
 
-                {/* Emergency Contacts Tab */}
-                {ogcTab === 'contacts' && (
-                  <>
-                    <article className="summary-card full-width">
-                      <h3>Emergency Contacts</h3>
-                      <form className="form-row" onSubmit={(e) => { e.preventDefault(); }}>
-                        <div className="form-group">
-                          <label htmlFor="contact-name">Contact Name</label>
-                          <input type="text" id="contact-name" placeholder="e.g., Campus Security" />
-                        </div>
-                        <div className="form-group">
-                          <label htmlFor="contact-type">Type</label>
-                          <select id="contact-type">
-                            <option value="">Select Type</option>
-                            <option value="security">Campus Security</option>
-                            <option value="medical">Medical</option>
-                            <option value="counseling">Counseling</option>
-                            <option value="admin">Administration</option>
-                            <option value="other">Other</option>
-                          </select>
-                        </div>
-                        <div className="form-group">
-                          <label htmlFor="contact-phone">Phone</label>
-                          <input type="tel" id="contact-phone" placeholder="Phone number" />
-                        </div>
-                        <div className="form-group">
-                          <label htmlFor="contact-email">Email</label>
-                          <input type="email" id="contact-email" placeholder="Email address" />
-                        </div>
-                        <button type="submit">Add Contact</button>
-                      </form>
-
-                      <h4 style={{ marginTop: '2rem' }}>Current Emergency Contacts</h4>
-                      {emergencyContacts?.length ? (
-                        <div className="ogc-table-wrap">
-                          <table className="ogc-table">
-                            <thead>
-                              <tr>
-                                <th>Name</th>
-                                <th>Type</th>
-                                <th>Phone</th>
-                                <th>Email</th>
-                                <th>Action</th>
-                              </tr>
-                            </thead>
-                            <tbody>
-                              {emergencyContacts.map((contact, idx) => (
-                                <tr key={idx}>
-                                  <td>{contact.name}</td>
-                                  <td>{contact.type}</td>
-                                  <td>{contact.phone}</td>
-                                  <td>{contact.email}</td>
-                                  <td><button type="button" className="muted-btn">Edit</button> <button type="button" className="muted-btn">Delete</button></td>
-                                </tr>
-                              ))}
-                            </tbody>
-                          </table>
-                        </div>
-                      ) : <p>No emergency contacts configured yet.</p>}
-                    </article>
-                  </>
-                )}
-              </div>
-            ) : <p>Load the dashboard to see anonymized analytics.</p>}
-              </>
-            )}
-
-            {ogcTab === 'slots' && (
-              <ManageSlots facilitator={facilitator} />
-            )}
-
-            {ogcTab === 'appointments' && (
-              <ManageAppointments facilitator={facilitator} />
-            )}
-
-            {ogcTab === 'contacts' && (
-              <>
-                <h2>Emergency Contacts</h2>
-                <p>Pre-configured emergency resources available to all students.</p>
-                <EmergencyContactsLegend />
-                {emergencyContacts.length === 0 && !loading ? <p className="info-message">Loading emergency contacts...</p> : null}
-                {emergencyContacts.length ? (
-                  <div className="contacts-grid">{emergencyContacts.map((contact) => (<EmergencyContactCard key={contact.contactId} contact={contact} />))}</div>
-                ) : <p>No contacts loaded.</p>}
-              </>
-            )}
-          </section>
+              {ogcTab === 'contacts' && (
+                <>
+                  <h2>Emergency Contacts</h2>
+                  <p>Pre-configured emergency resources available to all students.</p>
+                  <EmergencyContactsLegend />
+                  {emergencyContacts.length === 0 && !loading ? <p className="info-message">Loading emergency contacts...</p> : null}
+                  {emergencyContacts.length ? (
+                    <div className="contacts-grid">{emergencyContacts.map((contact) => (<EmergencyContactCard key={contact.contactId} contact={contact} />))}</div>
+                  ) : <p>No contacts loaded.</p>}
+                </>
+              )}
+            </section>
+          </div>
         </main>
 
         <footer className="inst-footer">� {new Date().getFullYear()} Batangas State University � OGC Facilitator Prototype</footer>
