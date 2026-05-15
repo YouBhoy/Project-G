@@ -1,37 +1,14 @@
 import { useEffect, useMemo, useState } from 'react';
-import { CALENDAR_API_BASE_URL } from '../../config.js';
-
-async function requestJson(path, options = {}) {
-  try {
-    const response = await fetch(`${CALENDAR_API_BASE_URL}${path}`, {
-      headers: {
-        'Content-Type': 'application/json',
-        ...(options.headers || {})
-      },
-      ...options
-    });
-
-    const payload = await response.json().catch(() => ({}));
-    if (!response.ok || payload.success === false) {
-      throw new Error(payload.message || 'Request failed.');
-    }
-
-    return payload.data;
-  } catch (error) {
-    if (error instanceof TypeError || String(error?.message || '').includes('fetch')) {
-      throw new Error('Cannot connect to the calendar server. Please make sure the server is running.');
-    }
-    throw error;
-  }
-}
+import { api } from '../../api.js';
 
 function normalizeSlots(data) {
   if (Array.isArray(data)) return data;
+  if (Array.isArray(data?.availableSlots)) return data.availableSlots;
   if (Array.isArray(data?.slots)) return data.slots;
   return [];
 }
 
-export default function BookAppointment({ student }) {
+export default function BookAppointment({ student, token }) {
   const [slots, setSlots] = useState([]);
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState('');
@@ -44,8 +21,25 @@ export default function BookAppointment({ student }) {
     setLoading(true);
     setError('');
     try {
-      const data = await requestJson('/api/slots');
-      setSlots(normalizeSlots(data));
+      // Prefer authenticated backend slots when logged in
+      if (token) {
+        const res = await api.getAvailableSlots(token);
+        const normalized = normalizeSlots(res);
+        // Ensure slots have required fields for display
+        setSlots(normalized.map((s) => ({
+          slotId: s.slotId || s.eventId,
+          eventId: s.slotId || s.eventId, // Keep eventId for compatibility
+          date: s.slotDate || s.date,
+          startTime: s.startTime,
+          endTime: s.endTime,
+          facilitatorId: s.facilitatorId,
+          maxSlots: s.maxSlots,
+          bookedCount: s.bookedCount,
+          spotsAvailable: (s.maxSlots || 0) - (s.bookedCount || 0)
+        })));
+      } else {
+        setError('Authentication required to book appointments.');
+      }
     } catch (err) {
       setError(err.message);
     } finally {
@@ -63,16 +57,19 @@ export default function BookAppointment({ student }) {
       return;
     }
 
+    if (!token) {
+      setError('You must be logged in to book appointments.');
+      return;
+    }
+
     if (!window.confirm(`Book ${slot.date} from ${slot.startTime} to ${slot.endTime}?`)) return;
 
     try {
       setLoading(true);
       setError('');
       setMessage('');
-      await requestJson(`/api/book/${slot.eventId}`, {
-        method: 'POST',
-        body: JSON.stringify({ studentId, studentName })
-      });
+      // Use authenticated backend API to create appointment
+      await api.bookAppointment({ slotId: slot.slotId, studentNotes: '' }, token);
       setMessage('Appointment request sent!');
       await loadSlots();
     } catch (err) {
@@ -104,7 +101,7 @@ export default function BookAppointment({ student }) {
               <h3>{slot.title || 'Counseling Slot'}</h3>
               <p><strong>Date:</strong> {slot.date}</p>
               <p><strong>Time:</strong> {slot.startTime} - {slot.endTime}</p>
-              <p><strong>Facilitator:</strong> {slot.title || 'Counseling Slot'}</p>
+              <p><strong>Available Spots:</strong> {slot.spotsAvailable || 0}</p>
               <p><strong>Spots Available:</strong> {slot.spotsAvailable}</p>
               {slot.isFull ? (
                 <span className="status-badge full">Full</span>
