@@ -2,20 +2,27 @@ import { useEffect, useMemo, useState } from 'react';
 import { CALENDAR_API_BASE_URL } from '../../config.js';
 
 async function requestJson(path, options = {}) {
-  const response = await fetch(`${CALENDAR_API_BASE_URL}${path}`, {
-    headers: {
-      'Content-Type': 'application/json',
-      ...(options.headers || {})
-    },
-    ...options
-  });
+  try {
+    const response = await fetch(`${CALENDAR_API_BASE_URL}${path}`, {
+      headers: {
+        'Content-Type': 'application/json',
+        ...(options.headers || {})
+      },
+      ...options
+    });
 
-  const payload = await response.json().catch(() => ({}));
-  if (!response.ok || payload.success === false) {
-    throw new Error(payload.message || 'Request failed.');
+    const payload = await response.json().catch(() => ({}));
+    if (!response.ok || payload.success === false) {
+      throw new Error(payload.message || 'Request failed.');
+    }
+
+    return payload.data;
+  } catch (error) {
+    if (error instanceof TypeError || String(error?.message || '').includes('fetch')) {
+      throw new Error('Cannot connect to the calendar server. Please make sure the server is running.');
+    }
+    throw error;
   }
-
-  return payload.data;
 }
 
 function normalizeSlots(data) {

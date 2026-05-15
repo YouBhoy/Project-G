@@ -7,7 +7,10 @@ import EmergencyContactCard from './components/EmergencyContactCard.jsx';
 import EmergencyContactsLegend from './components/EmergencyContactsLegend.jsx';
 import SafetyPlan from './components/student/SafetyPlan.jsx';
 import MyAppointments from './components/student/MyAppointments.jsx';
+import AccessAnalytics from './components/ogc/AccessAnalytics.jsx';
 import DescriptiveAnalytics from './components/ogc/DescriptiveAnalytics.jsx';
+import PredictiveAnalytics from './components/ogc/PredictiveAnalytics.jsx';
+import PrescriptiveAnalytics from './components/ogc/PrescriptiveAnalytics.jsx';
 
 const studentModules = {
   gawa: {
@@ -154,6 +157,9 @@ export default function App() {
   const [dashboard, setDashboard] = useState(null);
   const [ogcDashboard, setOgcDashboard] = useState(null);
   const [ogcTab, setOgcTab] = useState('analytics');
+  const [ogcAnalyticsView, setOgcAnalyticsView] = useState('access');
+  const [ogcPredictiveData, setOgcPredictiveData] = useState(null);
+  const [ogcPrescriptiveData, setOgcPrescriptiveData] = useState([]);
   const [ogcAppointments, setOgcAppointments] = useState([]);
   const [ogcAvailabilitySlots, setOgcAvailabilitySlots] = useState([]);
   const [emergencyContacts, setEmergencyContacts] = useState([]);
@@ -269,6 +275,25 @@ export default function App() {
       window.removeEventListener('storage', handleStorage);
     };
   }, [token, sessionRole]);
+
+  useEffect(() => {
+    if (!token || sessionRole !== 'ogc') return;
+    if (ogcTab !== 'analytics') return;
+
+    if (!ogcDashboard || !ogcPredictiveData || !ogcPrescriptiveData.length) {
+      run(async () => {
+        const [dashboardData, predictiveData, prescriptiveData] = await Promise.all([
+          api.ogcDashboard(token),
+          api.ogcAnalyticsPredict(token),
+          api.ogcAnalyticsPrescribe(token)
+        ]);
+
+        setOgcDashboard(dashboardData);
+        setOgcPredictiveData(predictiveData);
+        setOgcPrescriptiveData(prescriptiveData || []);
+      });
+    }
+  }, [ogcTab, token, sessionRole, ogcDashboard, ogcPredictiveData, ogcPrescriptiveData.length]);
 
   useEffect(() => {
     if (!token || sessionRole !== 'student') return;
@@ -531,8 +556,28 @@ export default function App() {
 
   function refreshOgcDashboard() {
     run(async () => {
-      const data = await api.ogcDashboard(token);
-      setOgcDashboard(data);
+      const [dashboardData, predictiveData, prescriptiveData] = await Promise.all([
+        api.ogcDashboard(token),
+        api.ogcAnalyticsPredict(token),
+        api.ogcAnalyticsPrescribe(token)
+      ]);
+      setOgcDashboard(dashboardData);
+      setOgcPredictiveData(predictiveData);
+      setOgcPrescriptiveData(prescriptiveData || []);
+    });
+  }
+
+  function refreshOgcPredictive() {
+    run(async () => {
+      const data = await api.ogcAnalyticsPredict(token);
+      setOgcPredictiveData(data);
+    });
+  }
+
+  function refreshOgcPrescriptive() {
+    run(async () => {
+      const data = await api.ogcAnalyticsPrescribe(token);
+      setOgcPrescriptiveData(data || []);
     });
   }
 
@@ -552,6 +597,9 @@ export default function App() {
     setMode('login');
     setDashboard(null);
     setOgcDashboard(null);
+    setOgcPredictiveData(null);
+    setOgcPrescriptiveData([]);
+    setOgcAnalyticsView('access');
     setLastDassResult(null);
     setLastCssrsResult(null);
     setLastEsmResult(null);
@@ -719,164 +767,105 @@ export default function App() {
         </header>
 
         <main className="shell app-shell">
-          <header className="topbar card">
-            <div>
-              <h1>OGC Facilitator Dashboard</h1>
-              <p>{facilitator?.name} ({facilitator?.email})</p>
-              <p>Scope: {facilitator?.assignedCollege || 'All'}</p>
-            </div>
-          </header>
-
-          <nav className="ogc-tabs card">
-            <button type="button" className={`tab-btn ${ogcTab === 'analytics' ? 'active' : ''}`} onClick={() => setOgcTab('analytics')}>Analytics</button>
-            <button type="button" className={`tab-btn ${ogcTab === 'slots' ? 'active' : ''}`} onClick={() => setOgcTab('slots')}>Manage Slots</button>
-            <button type="button" className={`tab-btn ${ogcTab === 'appointments' ? 'active' : ''}`} onClick={() => setOgcTab('appointments')}>Appointments</button>
-            <button type="button" className={`tab-btn ${ogcTab === 'contacts' ? 'active' : ''}`} onClick={() => setOgcTab('contacts')}>Emergency Contacts</button>
-          </nav>
-
-          <section className="card">
-            {ogcTab === 'analytics' && (
-              <>
-                <h2>Pseudonymized Student Analytics</h2>
-                <p>Student identities are hidden by default. Identity is only revealed for Crisis-level contact action.</p>
-                <button type="button" onClick={refreshOgcDashboard} disabled={loading}>{loading ? 'Refreshing...' : 'Load Analytics'}</button>
-
-            {ogcDashboard ? (
-              <div className="dashboard-wrap">
-                {/* Tab Navigation */}
-                <div className="ogc-tabs">
-                  <button className={`tab-btn ${ogcTab === 'analytics' ? 'active' : ''}`} onClick={() => setOgcTab('analytics')}>Analytics</button>
-                  <button className={`tab-btn ${ogcTab === 'slots' ? 'active' : ''}`} onClick={() => setOgcTab('slots')}>Slots</button>
-                  <button className={`tab-btn ${ogcTab === 'appointments' ? 'active' : ''}`} onClick={() => setOgcTab('appointments')}>Appointments</button>
-                  <button className={`tab-btn ${ogcTab === 'contacts' ? 'active' : ''}`} onClick={() => setOgcTab('contacts')}>Emergency Contacts</button>
-                </div>
-
-                {/* Analytics Tab */}
-                {ogcTab === 'analytics' && (
-                  <>
-                    <div className="hero-metrics">
-                      <article className="metric-card"><h3>Total Students</h3><p>{ogcDashboard.summary?.totalStudents || 0}</p></article>
-                      <article className="metric-card"><h3>Critical Alerts</h3><p>{ogcDashboard.summary?.criticalCount || 0}</p></article>
-                      <article className="metric-card"><h3>High Risk</h3><p>{ogcDashboard.summary?.riskCounts?.High || 0}</p></article>
-                    </div>
-
-                    <article className="summary-card full-width">
-                      <h3>Critical Awareness Queue</h3>
-                      {ogcDashboard.criticalAlerts?.length ? (
-                        <div className="ogc-list">
-                          {ogcDashboard.criticalAlerts.map((alert) => (
-                            <div key={`${alert.pseudoId}-${alert.latestClassificationAt}`} className="ogc-item">
-                              <p><strong>{alert.pseudoId}</strong> – Crisis classification at {new Date(alert.latestClassificationAt).toLocaleString()}</p>
-                              {alert.contact?.canContact ? (
-                                <button type="button" onClick={() => contactCriticalStudent(alert.contact.studentId)}>Contact Student</button>
-                              ) : null}
-                            </div>
-                          ))}
-                        </div>
-                      ) : <p>No crisis alerts right now.</p>}
-                    </article>
-                    {/* New descriptive analytics component */}
-                    <DescriptiveAnalytics data={ogcDashboard} />
-                  </>
-                )}
-
-                {/* Slots Tab */}
-                {ogcTab === 'slots' && (
-                  <ManageSlots facilitator={facilitator} />
-                )}
-
-                {/* Appointments Tab */}
-                {ogcTab === 'appointments' && (
-                  <ManageAppointments facilitator={facilitator} />
-                )}
-
-                {/* Emergency Contacts Tab */}
-                {ogcTab === 'contacts' && (
-                  <>
-                    <article className="summary-card full-width">
-                      <h3>Emergency Contacts</h3>
-                      <form className="form-row" onSubmit={(e) => { e.preventDefault(); }}>
-                        <div className="form-group">
-                          <label htmlFor="contact-name">Contact Name</label>
-                          <input type="text" id="contact-name" placeholder="e.g., Campus Security" />
-                        </div>
-                        <div className="form-group">
-                          <label htmlFor="contact-type">Type</label>
-                          <select id="contact-type">
-                            <option value="">Select Type</option>
-                            <option value="security">Campus Security</option>
-                            <option value="medical">Medical</option>
-                            <option value="counseling">Counseling</option>
-                            <option value="admin">Administration</option>
-                            <option value="other">Other</option>
-                          </select>
-                        </div>
-                        <div className="form-group">
-                          <label htmlFor="contact-phone">Phone</label>
-                          <input type="tel" id="contact-phone" placeholder="Phone number" />
-                        </div>
-                        <div className="form-group">
-                          <label htmlFor="contact-email">Email</label>
-                          <input type="email" id="contact-email" placeholder="Email address" />
-                        </div>
-                        <button type="submit">Add Contact</button>
-                      </form>
-
-                      <h4 style={{ marginTop: '2rem' }}>Current Emergency Contacts</h4>
-                      {emergencyContacts?.length ? (
-                        <div className="ogc-table-wrap">
-                          <table className="ogc-table">
-                            <thead>
-                              <tr>
-                                <th>Name</th>
-                                <th>Type</th>
-                                <th>Phone</th>
-                                <th>Email</th>
-                                <th>Action</th>
-                              </tr>
-                            </thead>
-                            <tbody>
-                              {emergencyContacts.map((contact, idx) => (
-                                <tr key={idx}>
-                                  <td>{contact.name}</td>
-                                  <td>{contact.type}</td>
-                                  <td>{contact.phone}</td>
-                                  <td>{contact.email}</td>
-                                  <td><button type="button" className="muted-btn">Edit</button> <button type="button" className="muted-btn">Delete</button></td>
-                                </tr>
-                              ))}
-                            </tbody>
-                          </table>
-                        </div>
-                      ) : <p>No emergency contacts configured yet.</p>}
-                    </article>
-                  </>
-                )}
+          <div className="content-area ogc-content-area">
+            <header className="topbar card ogc-top-panel">
+              <div className="ogc-top-copy">
+                <h1>OGC Facilitator Dashboard</h1>
+                <p>{facilitator?.name} ({facilitator?.email})</p>
+                <p>Scope: {facilitator?.assignedCollege || 'All'}</p>
               </div>
-            ) : <p>Load the dashboard to see anonymized analytics.</p>}
-              </>
-            )}
 
-            {ogcTab === 'slots' && (
-              <ManageSlots facilitator={facilitator} />
-            )}
+              <div className="ogc-top-actions">
+                <button type="button" className="danger-btn load-analytics" onClick={refreshOgcDashboard} disabled={loading}>{loading ? 'Refreshing...' : 'Load Analytics'}</button>
+              </div>
 
-            {ogcTab === 'appointments' && (
-              <ManageAppointments facilitator={facilitator} />
-            )}
+              <nav className="module-pages-nav ogc-tabs-panel" aria-label="OGC dashboard tabs">
+                <div className="pages-list ogc-pages-list">
+                  <button type="button" className={`page-item ${ogcTab === 'analytics' ? 'active' : ''}`} onClick={() => setOgcTab('analytics')}>Analytics</button>
+                  <button type="button" className={`page-item ${ogcTab === 'slots' ? 'active' : ''}`} onClick={() => setOgcTab('slots')}>Slots</button>
+                  <button type="button" className={`page-item ${ogcTab === 'appointments' ? 'active' : ''}`} onClick={() => setOgcTab('appointments')}>Appointments</button>
+                  <button type="button" className={`page-item ${ogcTab === 'contacts' ? 'active' : ''}`} onClick={() => setOgcTab('contacts')}>Emergency Contacts</button>
+                </div>
+              </nav>
+            </header>
 
-            {ogcTab === 'contacts' && (
-              <>
-                <h2>Emergency Contacts</h2>
-                <p>Pre-configured emergency resources available to all students.</p>
-                <EmergencyContactsLegend />
-                {emergencyContacts.length === 0 && !loading ? <p className="info-message">Loading emergency contacts...</p> : null}
-                {emergencyContacts.length ? (
-                  <div className="contacts-grid">{emergencyContacts.map((contact) => (<EmergencyContactCard key={contact.contactId} contact={contact} />))}</div>
-                ) : <p>No contacts loaded.</p>}
-              </>
-            )}
-          </section>
+            <section className="card ogc-content-card">
+              {ogcTab === 'analytics' && (
+                ogcDashboard ? (
+                  <div className="dashboard-wrap ogc-dashboard-wrap">
+                    <nav className="module-pages-nav analytics-mode-nav" aria-label="Analytics model navigation">
+                      <div className="pages-list ogc-pages-list">
+                        <button type="button" className={`page-item ${ogcAnalyticsView === 'access' ? 'active' : ''}`} onClick={() => setOgcAnalyticsView('access')}>Access</button>
+                        <button type="button" className={`page-item ${ogcAnalyticsView === 'descriptive' ? 'active' : ''}`} onClick={() => setOgcAnalyticsView('descriptive')}>Descriptive</button>
+                        <button type="button" className={`page-item ${ogcAnalyticsView === 'predictive' ? 'active' : ''}`} onClick={() => setOgcAnalyticsView('predictive')}>Predictive</button>
+                        <button type="button" className={`page-item ${ogcAnalyticsView === 'prescriptive' ? 'active' : ''}`} onClick={() => setOgcAnalyticsView('prescriptive')}>Prescriptive</button>
+                      </div>
+                    </nav>
+
+                    {ogcAnalyticsView === 'access' && (
+                      <AccessAnalytics data={ogcDashboard} onRefresh={refreshOgcDashboard} loading={loading} />
+                    )}
+
+                    {ogcAnalyticsView === 'descriptive' && (
+                      <>
+                        <div className="hero-metrics">
+                          <article className="metric-card"><h3>Total Students</h3><p>{ogcDashboard.summary?.totalStudents || 0}</p></article>
+                          <article className="metric-card"><h3>Critical Alerts</h3><p>{ogcDashboard.summary?.criticalCount || 0}</p></article>
+                          <article className="metric-card"><h3>High Risk</h3><p>{ogcDashboard.summary?.riskCounts?.High || 0}</p></article>
+                        </div>
+
+                        <article className="summary-card full-width ogc-critical-card">
+                          <h3>Critical Awareness Queue</h3>
+                          {ogcDashboard.criticalAlerts?.length ? (
+                            <div className="ogc-list">
+                              {ogcDashboard.criticalAlerts.map((alert) => (
+                                <div key={`${alert.pseudoId}-${alert.latestClassificationAt}`} className="ogc-item">
+                                  <p><strong>{alert.pseudoId}</strong> – Crisis classification at {new Date(alert.latestClassificationAt).toLocaleString()}</p>
+                                  {alert.contact?.canContact ? (
+                                    <button type="button" onClick={() => contactCriticalStudent(alert.contact.studentId)}>Contact Student</button>
+                                  ) : null}
+                                </div>
+                              ))}
+                            </div>
+                          ) : <p className="empty-state">No crisis alerts right now.</p>}
+                        </article>
+
+                        <DescriptiveAnalytics data={ogcDashboard} />
+                      </>
+                    )}
+
+                    {ogcAnalyticsView === 'predictive' && (
+                      <PredictiveAnalytics data={ogcPredictiveData} loading={loading} onRefresh={refreshOgcPredictive} />
+                    )}
+
+                    {ogcAnalyticsView === 'prescriptive' && (
+                      <PrescriptiveAnalytics data={ogcPrescriptiveData} loading={loading} onRefresh={refreshOgcPrescriptive} />
+                    )}
+                  </div>
+                ) : <p>Load the dashboard to see anonymized analytics.</p>
+              )}
+
+              {ogcTab === 'slots' && (
+                <ManageSlots facilitator={facilitator} />
+              )}
+
+              {ogcTab === 'appointments' && (
+                <ManageAppointments facilitator={facilitator} />
+              )}
+
+              {ogcTab === 'contacts' && (
+                <>
+                  <h2>Emergency Contacts</h2>
+                  <p>Pre-configured emergency resources available to all students.</p>
+                  <EmergencyContactsLegend />
+                  {emergencyContacts.length === 0 && !loading ? <p className="info-message">Loading emergency contacts...</p> : null}
+                  {emergencyContacts.length ? (
+                    <div className="contacts-grid">{emergencyContacts.map((contact) => (<EmergencyContactCard key={contact.contactId} contact={contact} />))}</div>
+                  ) : <p>No contacts loaded.</p>}
+                </>
+              )}
+            </section>
+          </div>
         </main>
 
         <footer className="inst-footer">� {new Date().getFullYear()} Batangas State University � OGC Facilitator Prototype</footer>
