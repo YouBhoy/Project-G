@@ -71,6 +71,7 @@ class AuthRepository {
         college: student['college']?.toString() ?? '',
         yearLevel: (student['yearLevel'] as num?)?.toInt() ?? 0,
         sex: student['sex']?.toString() ?? '',
+        consentFlag: (student['consentFlag'] as bool?) ?? false,
         token: token,
       );
 
@@ -173,6 +174,7 @@ class AuthRepository {
         college: student['college']?.toString() ?? '',
         yearLevel: (student['yearLevel'] as num?)?.toInt() ?? 0,
         sex: student['sex']?.toString() ?? '',
+        consentFlag: (student['consentFlag'] as bool?) ?? false,
         token: token,
       );
     } catch (e) {

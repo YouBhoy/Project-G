@@ -1,16 +1,20 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:spartan_g_mobile/core/constants/string_constants.dart';
+import 'package:spartan_g_mobile/core/constants/api_constants.dart';
+import 'package:spartan_g_mobile/core/models/shared_models.dart';
 import 'package:spartan_g_mobile/core/theme/app_colors.dart';
 import 'package:spartan_g_mobile/core/widgets/reusable_widgets.dart';
+import 'package:spartan_g_mobile/core/api/api_client.dart';
 
-class ESMScreen extends StatefulWidget {
+class ESMScreen extends ConsumerStatefulWidget {
   const ESMScreen({Key? key}) : super(key: key);
 
   @override
-  State<ESMScreen> createState() => _ESMScreenState();
+  ConsumerState<ESMScreen> createState() => _ESMScreenState();
 }
 
-class _ESMScreenState extends State<ESMScreen> {
+class _ESMScreenState extends ConsumerState<ESMScreen> {
   int moodScore = 5;
   int energyScore = 5;
   String? selectedStressor;
@@ -27,23 +31,47 @@ class _ESMScreenState extends State<ESMScreen> {
     'Other'
   ];
 
-  void _handleSubmit() {
+  Future<void> _handleSubmit() async {
     setState(() => isSubmitting = true);
-    
-    // Simulate API call
-    Future.delayed(const Duration(seconds: 2), () {
-      if (mounted) {
-        setState(() => isSubmitting = false);
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: const Text('Check-in submitted successfully'),
-            backgroundColor: AppColors.success,
-          ),
-        );
-        // Reset form
-        _resetForm();
-      }
-    });
+    final api = ref.read(apiClientProvider);
+    final payload = ESMSubmitRequestModel(
+      moodScore: moodScore,
+      energyScore: energyScore,
+      stressorCategory: selectedStressor ?? 'Other',
+      physicalSymptom: hasPhysicalSymptoms,
+      helpIntent: needsHelp,
+    );
+
+    try {
+      final resp = await api.post(
+        ApiConstants.esmSubmit,
+        data: payload.toJson(),
+      );
+
+      // Backend returns { success: true, data: { trajectory, generatedNotification } }
+      final data = resp['data'] ?? resp;
+      final trajectory = data['trajectory'];
+      final generatedNotification = data['generatedNotification'] == true;
+
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(generatedNotification
+              ? 'Check-in submitted — facilitator notified.'
+              : 'Check-in submitted successfully.'),
+          backgroundColor: AppColors.success,
+        ),
+      );
+
+      _resetForm();
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Failed to submit check-in: $e')),
+      );
+    } finally {
+      if (mounted) setState(() => isSubmitting = false);
+    }
   }
 
   void _resetForm() {

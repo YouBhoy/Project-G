@@ -1,35 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { CALENDAR_API_BASE } from '../../config.js';
-
-async function requestJson(path, options = {}) {
-  try {
-    const response = await fetch(`${CALENDAR_API_BASE}${path}`, {
-      headers: {
-        'Content-Type': 'application/json',
-        ...(options.headers || {})
-      },
-      ...options
-    });
-
-    const payload = await response.json().catch(() => ({}));
-    if (!response.ok || payload.success === false) {
-      throw new Error(payload.message || 'Request failed.');
-    }
-
-    return payload.data;
-  } catch (error) {
-    if (error instanceof TypeError || String(error?.message || '').includes('fetch')) {
-      throw new Error('Cannot connect to the calendar server. Please make sure the server is running.');
-    }
-    throw error;
-  }
-}
-
-function normalizeSlots(data) {
-  if (Array.isArray(data)) return data;
-  if (Array.isArray(data?.slots)) return data.slots;
-  return [];
-}
+import { api } from '../../api.js';
 
 function createEmptyForm() {
   return {
@@ -40,7 +10,7 @@ function createEmptyForm() {
   };
 }
 
-export default function ManageSlots({ facilitator }) {
+export default function ManageSlots({ facilitator, token }) {
   const [form, setForm] = useState(createEmptyForm());
   const [slots, setSlots] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -53,12 +23,9 @@ export default function ManageSlots({ facilitator }) {
     setLoading(true);
     setError('');
     try {
-      console.log(`Loading slots from ${CALENDAR_API_BASE}/api/slots`);
-      const data = await requestJson('/api/slots');
-      console.log('GET /api/slots response:', data);
-      setSlots(normalizeSlots(data));
+      const data = await api.getOgcAvailabilitySlots(token);
+      setSlots(data.slots || []);
     } catch (err) {
-      console.error('GET /api/slots failed:', err);
       setError(err.message);
     } finally {
       setLoading(false);
@@ -71,40 +38,23 @@ export default function ManageSlots({ facilitator }) {
 
   const submitSlot = async (event) => {
     event.preventDefault();
-    console.log('Submitting new slot with form state:', form);
-
     try {
       setLoading(true);
       setError('');
       setMessage('');
 
       const requestBody = {
-        title: 'Counseling Session',
-        date: form.date,
+        slotDate: form.date,
         startTime: form.startTime,
         endTime: form.endTime,
-        maxStudents: Number(form.maxStudents) || 1
+        maxSlots: Number(form.maxStudents) || 1
       };
 
-      console.log('POST /api/slots payload:', requestBody);
-
-      const createdSlot = await requestJson('/api/slots', {
-        method: 'POST',
-        body: JSON.stringify({
-          title: requestBody.title,
-          date: requestBody.date,
-          startTime: requestBody.startTime,
-          endTime: requestBody.endTime,
-          maxStudents: requestBody.maxStudents
-        })
-      });
-
-      console.log('POST /api/slots response:', createdSlot);
+      await api.createAvailabilitySlot(requestBody, token);
       setMessage('Slot created.');
       setForm(createEmptyForm());
       await loadSlots();
     } catch (err) {
-      console.error('POST /api/slots failed:', err);
       setError(err.message);
     } finally {
       setLoading(false);
@@ -118,12 +68,10 @@ export default function ManageSlots({ facilitator }) {
       setLoading(true);
       setError('');
       setMessage('');
-      console.log(`DELETE /api/slots/${eventId}`);
-      await requestJson(`/api/slots/${eventId}`, { method: 'DELETE' });
+      await api.deleteAvailabilitySlot(eventId, token);
       setMessage('Slot deleted.');
       await loadSlots();
     } catch (err) {
-      console.error('DELETE /api/slots failed:', err);
       setError(err.message);
     } finally {
       setLoading(false);
@@ -190,14 +138,14 @@ export default function ManageSlots({ facilitator }) {
           <tbody>
             {slots.length ? slots.map((slot) => (
               <tr key={slot.eventId}>
-                <td>{slot.title}</td>
-                <td>{slot.date}</td>
+                <td>{slot.title || 'Counseling Session'}</td>
+                <td>{slot.slotDate || slot.date}</td>
                 <td>{slot.startTime} - {slot.endTime}</td>
-                <td>{slot.maxStudents}</td>
-                <td>{slot.bookingCount}</td>
-                <td>{slot.spotsAvailable}</td>
+                <td>{slot.maxSlots || slot.maxStudents}</td>
+                <td>{slot.bookedCount || slot.bookingCount || 0}</td>
+                <td>{slot.spotsAvailable ?? Math.max((slot.maxSlots || slot.maxStudents || 0) - (slot.bookedCount || slot.bookingCount || 0), 0)}</td>
                 <td>
-                  <button type="button" className="danger-btn" onClick={() => handleDelete(slot.eventId, slot.title)} disabled={loading}>
+                  <button type="button" className="danger-btn" onClick={() => handleDelete(slot.slotId || slot.eventId, slot.title)} disabled={loading}>
                     Delete
                   </button>
                 </td>

@@ -58,11 +58,11 @@ export default function PrescriptiveAnalytics({ data, loading, onRefresh }) {
         ) : rows.length ? (
           <div className="prescriptive-list">
             {rows.map((row, index) => (
-              <React.Fragment key={row.studentId}>
+              <React.Fragment key={row.pseudoId || row.studentId}>
                 <article className={`prescriptive-item ${index % 2 === 1 ? 'alt' : ''}`}>
                   <header className="prescriptive-item-head">
                     <div className="prescriptive-student">
-                      <strong>{row.studentId}</strong>
+                      <strong>{row.pseudoId || row.studentId}</strong>
                     </div>
                     <span className={pathwayClass(row.pathway)}>{row.pathway || 'Monitor'}</span>
                   </header>
@@ -71,7 +71,7 @@ export default function PrescriptiveAnalytics({ data, loading, onRefresh }) {
 
                   <div className="rule-pill-list" aria-label="Recommendation rules">
                     {(row.rules || ['No active rules']).map((rule) => (
-                      <span key={`${row.studentId}-${rule}`} className="rule-pill">{rule}</span>
+                      <span key={`${row.pseudoId || row.studentId}-${rule}`} className="rule-pill">{rule}</span>
                     ))}
                   </div>
                 </article>

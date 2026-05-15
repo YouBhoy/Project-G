@@ -17,6 +17,7 @@ This guide explains how to run the full SPARTAN-G stack and install the Flutter 
 - Database: MySQL database named `spartan_g`
 - Mobile app: Flutter Android app
 - API base URL: your PC LAN IP, not `10.0.2.2`, when testing on a real phone
+- Calendar bridge: optional, only if you have your own Google service account JSON
 
 ## Required Local Changes On Your Side
 
@@ -110,6 +111,7 @@ Important rules:
 - Login reads the student from the backend and shows the real logged-in account.
 - Logout clears the secure storage and returns to the login screen.
 - Dashboard and profile screens now show the active student instead of hardcoded demo data.
+- Facilitator-facing data is authorized server-side, so phone and web clients only see their own scoped data.
 
 ## If You Want To Change Things On Your End
 
@@ -118,8 +120,9 @@ You only need to change these items for your own machine:
 1. The Wi-Fi IP in `mobile-app/lib/core/constants/api_constants.dart`
 2. The MySQL credentials in `backend/.env` if your XAMPP setup is different
 3. The Firebase Android config file if you plan to use push notifications:
-   - add `android/app/google-services.json`
+  - add `android/app/google-services.json`
 4. Optionally, the Android application ID in `mobile-app/android/app/build.gradle.kts` if you want a custom package name
+5. If you want calendar-backed facilitator features, add your own `server/.env` and `server/service-account.json` in the `spartan-g/server` folder.
 
 ## Troubleshooting
 
@@ -167,3 +170,18 @@ cd E:\AndroidSDK\platform-tools
 4. Update the mobile API IP if needed
 5. Build and install the APK
 6. Sign up or log in on the phone
+
+If you want a one-click desktop launcher, use [start-all.bat](start-all.bat) from the `spartan-g` folder. Set `MOBILE_API_BASE_URL` first if you are targeting a physical phone instead of the emulator.
+The launcher will skip the optional calendar server unless the local calendar files already exist.
+
+Local Setup Checklist (quick):
+
+- Install Node.js, npm, Flutter (for mobile), and XAMPP with MySQL.
+- Clone the repo and run `npm install` in `backend/`, `server/`, and `student-portal/`.
+- Import `backend/sql/setup-spartan-g.sql` into phpMyAdmin and copy `.env.example` → `.env` in `backend/` with local MySQL credentials.
+- If using calendar features, add `server/service-account.json` and create `server/.env` with `CALENDAR_ID` and optionally `PORT=3002`.
+- For physical Android testing, set `MOBILE_API_BASE_URL` to your machine's LAN IP (e.g. `http://192.168.1.10:3001/api`) before running `start-all.bat`.
+
+## Quick Win
+
+If you only need the student portal and backend, you do not need any Google calendar secrets. Copy `backend/.env.example` to `backend/.env`, import the SQL seed, and run `start-all.bat`.

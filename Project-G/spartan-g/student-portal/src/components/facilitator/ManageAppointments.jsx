@@ -1,96 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { CALENDAR_API_BASE } from '../../config.js';
-
-async function requestJson(path, options = {}) {
-  try {
-    const response = await fetch(`${CALENDAR_API_BASE}${path}`, {
-      headers: {
-        'Content-Type': 'application/json',
-        ...(options.headers || {})
-      },
-      ...options
-    });
-
-    const payload = await response.json().catch(() => ({}));
-    if (!response.ok || payload.success === false) {
-      throw new Error(payload.message || 'Request failed.');
-    }
-
-    return payload.data;
-  } catch (error) {
-    if (error instanceof TypeError || String(error?.message || '').includes('fetch')) {
-      throw new Error('Cannot connect to the calendar server. Please make sure the server is running.');
-    }
-    throw error;
-  }
-}
-
-function normalizeSlots(data) {
-  if (Array.isArray(data)) return data;
-  if (Array.isArray(data?.slots)) return data.slots;
-  return [];
-}
-
-function parseBookingsFromSlots(slots) {
-  const bookings = [];
-
-  slots.forEach((slot) => {
-    if (Array.isArray(slot.bookings) && slot.bookings.length) {
-      slot.bookings.forEach((booking) => {
-        bookings.push({
-          eventId: slot.eventId,
-          title: slot.title || 'Counseling Session',
-          date: slot.date,
-          startTime: slot.startTime,
-          endTime: slot.endTime,
-          studentId: booking.studentId || '',
-          studentName: booking.studentName || '',
-          status: booking.status || slot.calendarStatus || 'Pending'
-        });
-      });
-      return;
-    }
-
-    const description = String(slot.description || '');
-    const lines = description.split(/\r?\n/).map((line) => line.trim()).filter(Boolean);
-    const base = {
-      eventId: slot.eventId,
-      title: slot.title || 'Counseling Session',
-      date: slot.date,
-      startTime: slot.startTime,
-      endTime: slot.endTime,
-      studentId: '',
-      studentName: '',
-      status: slot.calendarStatus || 'Pending'
-    };
-
-    let current = null;
-
-    lines.forEach((line) => {
-      if (line.startsWith('Student ID:')) {
-        current = {
-          ...base,
-          studentId: line.replace('Student ID:', '').trim()
-        };
-        bookings.push(current);
-        return;
-      }
-
-      if (current && line.startsWith('Student Name:')) {
-        current.studentName = line.replace('Student Name:', '').trim();
-      }
-
-      if (line.startsWith('Booking Status:')) {
-        const status = line.replace('Booking Status:', '').trim();
-        if (current) {
-          current.status = status || current.status;
-        }
-      }
-    });
-  });
-
-  return bookings;
-}
+import { api } from '../../api.js';
 
 function normalizeDisplayStatus(status) {
   if (status === 'Confirmed') return 'Approved';
@@ -115,7 +24,7 @@ function statusStyle(status) {
   return { backgroundColor: '#f4c542', color: '#2b2200' };
 }
 
-export default function ManageAppointments({ facilitator }) {
+export default function ManageAppointments({ facilitator, token }) {
   const [bookings, setBookings] = useState([]);
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState('');
@@ -127,8 +36,8 @@ export default function ManageAppointments({ facilitator }) {
     setLoading(true);
     setError('');
     try {
-      const data = await requestJson('/api/slots');
-      setBookings(parseBookingsFromSlots(normalizeSlots(data)));
+      const data = await api.getOgcAppointments(token);
+      setBookings(data.appointments || []);
     } catch (err) {
       setError(err.message);
     } finally {
@@ -141,34 +50,28 @@ export default function ManageAppointments({ facilitator }) {
   }, []);
 
   const updateBooking = async (booking, action) => {
-    const endpointByAction = {
-      approve: 'confirm',
-      disapprove: 'disapprove',
-      cancel: 'cancel'
-    };
-
     const labelByAction = {
       approve: 'Approve',
       disapprove: 'Disapprove',
       cancel: 'Cancel'
     };
 
-    const endpoint = endpointByAction[action];
     const label = labelByAction[action];
 
-    if (!endpoint || !label) return;
+    if (!label) return;
 
-    if (!window.confirm(`${label} this appointment for ${booking.studentName || booking.studentId || 'the student'}?`)) return;
+    if (!window.confirm(`${label} this appointment for ${booking.pseudoId || 'the student'}?`)) return;
 
     try {
       setLoading(true);
       setError('');
       setMessage('');
 
-      await requestJson(`/api/bookings/${booking.eventId}/${endpoint}`, {
-        method: 'PATCH',
-        body: JSON.stringify({ studentId: booking.studentId })
-      });
+      if (action === 'approve') {
+        await api.approveAppointment(booking.appointmentId, {}, token);
+      } else if (action === 'disapprove' || action === 'cancel') {
+        await api.rejectAppointment(booking.appointmentId, {}, token);
+      }
 
       setMessage(`Appointment ${label.toLowerCase()}d.`);
       await loadBookings();
@@ -199,7 +102,7 @@ export default function ManageAppointments({ facilitator }) {
         <table className="ogc-table">
           <thead>
             <tr>
-              <th>Student Name</th>
+              <th>Student</th>
               <th>Date</th>
               <th>Time</th>
               <th>Title / Type</th>
@@ -217,9 +120,9 @@ export default function ManageAppointments({ facilitator }) {
                 const displayStatus = normalizeDisplayStatus(booking.status);
 
                 return (
-                  <tr key={`${booking.eventId}-${booking.studentId || booking.studentName || 'student'}`}>
-                    <td>{booking.studentName || booking.studentId || 'Student'}</td>
-                    <td>{booking.date || '-'}</td>
+                  <tr key={`${booking.appointmentId}-${booking.pseudoId || 'student'}`}>
+                    <td>{booking.pseudoId || booking.studentId || 'Student'}</td>
+                    <td>{booking.slotDate || booking.date || '-'}</td>
                     <td>{booking.startTime || '-'} - {booking.endTime || '-'}</td>
                     <td>{booking.title || 'Counseling Session'}</td>
                     <td>

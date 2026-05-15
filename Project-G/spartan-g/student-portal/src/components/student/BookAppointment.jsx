@@ -1,9 +1,9 @@
 import { useEffect, useMemo, useState } from 'react';
-import { CALENDAR_API_BASE } from '../../config.js';
+import { CALENDAR_API_BASE_URL } from '../../config.js';
 
 async function requestJson(path, options = {}) {
   try {
-    const response = await fetch(`${CALENDAR_API_BASE}${path}`, {
+    const response = await fetch(`${CALENDAR_API_BASE_URL}${path}`, {
       headers: {
         'Content-Type': 'application/json',
         ...(options.headers || {})

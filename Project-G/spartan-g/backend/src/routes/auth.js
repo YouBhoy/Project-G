@@ -92,7 +92,7 @@ router.post('/signup', async (req, res) => {
     await writeDb(db);
     
     // Generate token for immediate access
-    const token = jwt.sign({ facilitatorId: nextFacilitatorId, email, role: 'ogc' }, JWT_SECRET, { expiresIn: '12h' });
+    const token = jwt.sign({ facilitatorId: nextFacilitatorId, email, assignedCollege, role: 'ogc' }, JWT_SECRET, { expiresIn: '12h' });
     return res.status(201).json({ 
       success: true, 
       message: 'OGC signup successful.',
@@ -166,7 +166,7 @@ router.post('/login', async (req, res) => {
       return res.status(401).json({ success: false, message: 'Invalid OGC credentials.' });
     }
 
-    const token = jwt.sign({ facilitatorId: facilitator.facilitatorId, role: 'ogc' }, JWT_SECRET, { expiresIn: '12h' });
+    const token = jwt.sign({ facilitatorId: facilitator.facilitatorId, email: facilitator.email, assignedCollege: facilitator.assignedCollege, role: 'ogc' }, JWT_SECRET, { expiresIn: '12h' });
     return res.json({
       success: true,
       data: {

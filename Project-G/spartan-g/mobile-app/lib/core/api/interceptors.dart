@@ -43,25 +43,31 @@ class ErrorInterceptor extends Interceptor {
       // Trigger logout notification
       // Navigate to login
       return handler.reject(
-        UnauthorizedException('Session expired. Please login again.'),
+        DioException(requestOptions: err.requestOptions, error: UnauthorizedException('Session expired. Please login again.')),
       );
     }
 
     if (err.response?.statusCode == 403) {
+      final msg = (err.response?.data is Map) ? (err.response?.data['message']?.toString() ?? '') : (err.response?.statusMessage ?? 'Access forbidden');
+      if (msg.toLowerCase().contains('consent')) {
+        return handler.reject(
+          DioException(requestOptions: err.requestOptions, error: ConsentRequiredException(msg)),
+        );
+      }
       return handler.reject(
-        UnauthorizedException('Access forbidden.'),
+        DioException(requestOptions: err.requestOptions, error: UnauthorizedException(msg)),
       );
     }
 
     if (err.response?.statusCode == 404) {
       return handler.reject(
-        NotFoundException('Resource not found.'),
+        DioException(requestOptions: err.requestOptions, error: NotFoundException('Resource not found.')),
       );
     }
 
     if (err.response?.statusCode == 500) {
       return handler.reject(
-        ServerException('Server error. Please try again later.'),
+        DioException(requestOptions: err.requestOptions, error: ServerException('Server error. Please try again later.')),
       );
     }
 
@@ -69,13 +75,13 @@ class ErrorInterceptor extends Interceptor {
         err.type == DioExceptionType.receiveTimeout ||
         err.type == DioExceptionType.sendTimeout) {
       return handler.reject(
-        NetworkException('Request timeout. Please check your connection.'),
+        DioException(requestOptions: err.requestOptions, error: NetworkException('Request timeout. Please check your connection.'), type: err.type),
       );
     }
 
     if (err.type == DioExceptionType.unknown) {
       return handler.reject(
-        NetworkException('Network error. Please check your connection.'),
+        DioException(requestOptions: err.requestOptions, error: NetworkException('Network error. Please check your connection.'), type: err.type),
       );
     }
 

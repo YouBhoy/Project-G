@@ -1,67 +1,71 @@
-# Project SPARTAN-G (Student Side MVP)
+# SPARTAN-G
 
-This initial build includes:
-- `backend`: authentication, consent, DASS-21, C-SSRS Lite, ESM check-ins, risk classification, referral triggers
-- `student-portal`: login/signup + student assessment flow UI
+Monorepo for the BatStateU-TNEU Lipa campus mental health support prototype.
 
-## Run
+## What Runs
 
-### 1) Backend
+- `backend`: student auth, consent, assessments, ESM, risk scoring, referrals
+- `student-portal`: student web app and facilitator dashboard
+- `server`: optional Google Calendar bridge for calendar-backed features
+- `mobile-app`: optional Flutter client
+
+## Fast Setup
+
+1. Install Node.js, npm, and XAMPP MySQL.
+2. Start XAMPP MySQL.
+3. Import [backend/sql/setup-spartan-g.sql](backend/sql/setup-spartan-g.sql) into phpMyAdmin.
+4. Install dependencies in the root, backend, and student portal folders.
+5. Run [start-all.bat](start-all.bat) from the `spartan-g` folder.
+
+The launcher will copy `backend/.env` from `backend/.env.example` if it is missing. It will also copy `server/.env` from `server/.env.example` when you want calendar features.
+
+## Local Files You Create
+
+- `backend/.env` for MySQL and backend settings.
+- `server/.env` and `server/service-account.json` only if you want the optional Google Calendar server.
+
+These files are gitignored on purpose. Other collaborators should generate their own local copies from the example files.
+
+## Manual Run
+
+### Backend + student portal only
 
 ```powershell
+cd "spartan-g"
+npm install
 cd "spartan-g/backend"
 npm install
 npm run dev
 ```
 
-Runs on `http://localhost:3001`.
-
-If you want the XAMPP route, create a MySQL database in phpMyAdmin, import [backend/sql/schema.sql](backend/sql/schema.sql), then set `DB_CLIENT=mysql` in `backend/.env` with your MySQL settings.
-
-Example `.env` values for a default XAMPP install:
-
-```env
-DB_CLIENT=mysql
-MYSQL_HOST=127.0.0.1
-## 🚀 Quick Setup
-
-**See [SETUP.md](./SETUP.md) for complete step-by-step guide** (30 seconds with XAMPP MySQL)
-
-### TL;DR
-1. Start XAMPP MySQL
-2. Import `backend/sql/setup-spartan-g.sql` via phpMyAdmin
-3. `npm install` in both `backend/` and `student-portal/`
-4. `npm run dev` in `backend/` (port 3001)
-5. `npm run dev` in `student-portal/` (port 5175)
-6. Open `http://localhost:5175` → `alice@campus.edu` / `password123`
-```
-
-7. In another terminal, run the student portal:
+Then in a second terminal:
 
 ```powershell
 cd "spartan-g/student-portal"
 npm install
-$env:VITE_API_BASE_URL="http://localhost:3001"
 npm run dev
 ```
 
-8. Open `http://localhost:5175` and test the flow:
-- Sign up
-- Log in
-- Accept consent
-- Take DASS-21
-- Check the dashboard
+This starts the backend on `http://localhost:3001` and the student portal on `http://localhost:5175`.
 
-Apache is optional for this prototype. You mainly need XAMPP MySQL, the backend server, and the Vite frontend.
-# Project SPARTAN-G
+### Optional calendar server
 
-Monorepo scaffold for the mental health support system for BatStateU-TNEU Lipa Campus.
+Use this only if you have your own Google service account JSON and calendar ID.
 
-For phone/device setup, backend startup, and collaborator instructions, see [PHONE_SETUP.md](PHONE_SETUP.md).
+```powershell
+cd "spartan-g/server"
+npm install
+npm start
+```
 
-## Layout
+Set `PORT=3002` if you want to match the launcher script.
 
-- `backend` - Node.js + Express + TypeScript API
-- `mobile` - Flutter mobile client
-- `dashboard` - React OGC facilitator dashboard
-- `student-portal` - React student web portal (accessibility fallback)
+## Phone Setup
+
+If you are testing on a physical Android phone, read [PHONE_SETUP.md](PHONE_SETUP.md). It explains the LAN IP, Flutter build, and the optional calendar configuration.
+
+## Notes
+
+- Apache is optional; XAMPP MySQL is the important part for local development.
+- Facilitator data is now filtered server-side by authenticated JWT identity.
+- Keep private keys and tokens local. Share the `.env.example` files instead.

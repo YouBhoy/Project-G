@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../constants/api_constants.dart';
 import '../services/secure_storage_service.dart';
 import 'interceptors.dart';
+import 'api_response.dart';
 
 final dioProvider = Provider<Dio>((ref) {
   final storageService = ref.watch(secureStorageProvider);
@@ -125,6 +126,10 @@ class ApiClient {
   }
 
   Exception _handleError(DioException error) {
+    // If interceptor wrapped an ApiException inside DioException.error, surface it directly
+    if (error.error != null && error.error is ApiException) {
+      return error.error as ApiException;
+    }
     if (error.response?.statusCode == 401) {
       return UnauthorizedException('Unauthorized');
     } else if (error.response?.statusCode == 403) {

@@ -135,9 +135,9 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
               children: [
                 const RiskLevelBadge(riskLevel: 'Moderate'),
                 TextButton.icon(
-                  onPressed: () {},
-                  icon: const Icon(Icons.info_outline),
-                  label: const Text('Details'),
+                  onPressed: () => context.push('/analytics'),
+                  icon: const Icon(Icons.analytics),
+                  label: const Text('Analytics'),
                 ),
               ],
             ),

@@ -1,5 +1,8 @@
 import express from 'express';
 import { readDb } from '../../db.mysql.js';
+import { auth, requireRole } from '../../middleware/auth.js';
+import { getAuthorizedStudents } from '../../utils/ogcScope.js';
+import { pseudonymizeStudentId } from '../../utils/helpers.js';
 
 const router = express.Router();
 
@@ -8,11 +11,15 @@ function mean(a){ if(!a||a.length===0) return null; return a.reduce((s,x)=>s+x,0
 function safeNum(v){ return v===undefined||v===null?0:Number(v); }
 
 // Build per-student feature vector from available assessments and esm
-async function buildFeatures(snapshot){
-  const students = snapshot.students || [];
-  const assessments = snapshot.assessments || [];
-  const dass = snapshot.dass21Responses || [];
-  const esm = snapshot.esmEntries || [];
+async function buildFeatures(snapshot, facilitator){
+  const students = getAuthorizedStudents(snapshot, facilitator);
+  const allowedStudentIds = new Set(students.map((student) => String(student.studentId)));
+  const assessments = (snapshot.assessments || []).filter((assessment) => allowedStudentIds.has(String(assessment.studentId)));
+  const dass = (snapshot.dass21Responses || []).filter((response) => {
+    const assessment = assessments.find((item) => item.assessmentId === response.assessmentId);
+    return assessment ? allowedStudentIds.has(String(assessment.studentId)) : false;
+  });
+  const esm = (snapshot.esmEntries || []).filter((entry) => allowedStudentIds.has(String(entry.studentId)));
 
   // group assessments and responses
   const assessmentsById = {};
@@ -73,6 +80,7 @@ async function buildFeatures(snapshot){
 
     return {
       studentId: sid,
+      pseudoId: pseudonymizeStudentId(sid),
       college: s.college,
       yearLevel: s.yearLevel,
       sex: s.sex,
@@ -154,10 +162,15 @@ function trainGBoost(X,y, opts={rounds:10, lr:0.1}){
 function predictGBoost(model,x){ if(!model) return 0.0; let s=0; for(const t of model.trees){ s += model.lr * ( x[t.j] <= t.t ? t.leftPred : t.rightPred ); } return 1/(1+Math.exp(-s)); }
 
 // Endpoint: compute predictions and explanations
-router.get('/predict', async (req,res)=>{
+router.get('/predict', auth, requireRole('ogc'), async (req,res)=>{
   try{
     const snapshot = await readDb();
-    const features = await buildFeatures(snapshot);
+    const facilitator = snapshot.facilitators.find((item) => Number(item.facilitatorId) === Number(req.user.facilitatorId));
+    if (!facilitator) {
+      return res.status(404).json({ success: false, message: 'Facilitator not found.' });
+    }
+
+    const features = await buildFeatures(snapshot, facilitator);
 
     // Build feature matrix
     const featureNames = ['depression','anxiety','stress','phq','gad','avgMood','avgEnergy','esmAnomalies'];
@@ -205,7 +218,7 @@ router.get('/predict', async (req,res)=>{
       }
 
       return {
-        studentId: f.studentId,
+        pseudoId: f.pseudoId,
         probs: { logistic: Math.round(pLog*10000)/10000, xgboost: Math.round(pXgb*10000)/10000 },
         explanations: { logistic: shapLog, xgboost: shapXgb }
       };
@@ -216,10 +229,15 @@ router.get('/predict', async (req,res)=>{
 });
 
 // Endpoint: prescriptive recommendations (rules + decision tree style)
-router.get('/prescribe', async (req,res)=>{
+router.get('/prescribe', auth, requireRole('ogc'), async (req,res)=>{
   try{
     const snapshot = await readDb();
-    const features = await buildFeatures(snapshot);
+    const facilitator = snapshot.facilitators.find((item) => Number(item.facilitatorId) === Number(req.user.facilitatorId));
+    if (!facilitator) {
+      return res.status(404).json({ success: false, message: 'Facilitator not found.' });
+    }
+
+    const features = await buildFeatures(snapshot, facilitator);
 
     const recommendations = features.map(f=>{
       // Simple rule-based engine
@@ -234,7 +252,7 @@ router.get('/prescribe', async (req,res)=>{
       if(rules.includes('Immediate referral to OGC - possible crisis')) pathway = 'Refer';
       else if(rules.includes('Schedule check-in / outreach') || rules.includes('Recommend cognitive coping workshop')) pathway = 'Intervene';
 
-      return { studentId: f.studentId, rules, pathway };
+      return { pseudoId: f.pseudoId, rules, pathway };
     });
 
     return res.json({ success:true, data: recommendations });

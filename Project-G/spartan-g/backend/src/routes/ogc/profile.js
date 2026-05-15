@@ -2,6 +2,7 @@ import express from 'express';
 import { readDb, writeDb } from '../../storage/index.js';
 import { auth, requireRole } from '../../middleware/auth.js';
 import { pseudonymizeStudentId, nowIso } from '../../utils/helpers.js';
+import { getAuthorizedStudents, resolveAuthorizedStudent } from '../../utils/ogcScope.js';
 
 const router = express.Router();
 
@@ -32,11 +33,7 @@ router.get('/dashboard', auth, requireRole('ogc'), async (req, res) => {
     return res.status(404).json({ success: false, message: 'Facilitator not found.' });
   }
 
-  const facilitatorScope = `${facilitator.assignedCollege || ''}`.trim().toLowerCase();
-  const studentsInScope = db.students.filter((s) => {
-    if (!facilitatorScope || facilitatorScope === 'all') return true;
-    return `${s.college || ''}`.trim().toLowerCase() === facilitatorScope;
-  });
+  const studentsInScope = getAuthorizedStudents(db, facilitator);
 
   const latestClassifications = new Map();
   for (const student of studentsInScope) {
@@ -63,12 +60,13 @@ router.get('/dashboard', auth, requireRole('ogc'), async (req, res) => {
     const contact = latest?.riskLevel === 'Crisis'
       ? {
           canContact: true,
-          studentId: student.studentId,
-          name: student.name,
-          email: student.email
+          canRevealContact: Boolean(student.consentFlag),
+          pseudoId: pseudonymizeStudentId(student.studentId)
         }
       : {
-          canContact: false
+          canContact: false,
+          canRevealContact: false,
+          pseudoId: pseudonymizeStudentId(student.studentId)
         };
 
     return {
@@ -124,9 +122,9 @@ router.get('/dashboard', auth, requireRole('ogc'), async (req, res) => {
 
 // Contact student (crisis action)
 router.post('/contact', auth, requireRole('ogc'), async (req, res) => {
-  const { studentId, channel = 'Email', note = '' } = req.body || {};
-  if (!studentId) {
-    return res.status(400).json({ success: false, message: 'studentId is required.' });
+  const { studentId, pseudoId, channel = 'Email', note = '' } = req.body || {};
+  if (!studentId && !pseudoId) {
+    return res.status(400).json({ success: false, message: 'studentId or pseudoId is required.' });
   }
 
   const db = await readDb();
@@ -135,9 +133,9 @@ router.post('/contact', auth, requireRole('ogc'), async (req, res) => {
     return res.status(404).json({ success: false, message: 'Facilitator not found.' });
   }
 
-  const student = db.students.find((s) => s.studentId === studentId);
+  const student = resolveAuthorizedStudent(db, facilitator, studentId || pseudoId);
   if (!student) {
-    return res.status(404).json({ success: false, message: 'Student not found.' });
+    return res.status(404).json({ success: false, message: 'Student not found or not in your scope.' });
   }
 
   const latestClassification = [...db.riskClassifications]
@@ -173,9 +171,8 @@ router.post('/contact', auth, requireRole('ogc'), async (req, res) => {
     data: {
       message: 'Contact workflow logged successfully.',
       student: {
-        studentId: student.studentId,
-        name: student.name,
-        email: student.email
+        pseudoId: pseudonymizeStudentId(student.studentId),
+        canRevealContact: Boolean(student.consentFlag)
       }
     }
   });

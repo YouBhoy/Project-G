@@ -5,6 +5,7 @@ class AuthDataModel {
   final String college;
   final int yearLevel;
   final String sex;
+  final bool consentFlag;
   final String? token;
 
   AuthDataModel({
@@ -14,6 +15,7 @@ class AuthDataModel {
     required this.college,
     required this.yearLevel,
     required this.sex,
+    required this.consentFlag,
     this.token,
   });
 
@@ -25,6 +27,7 @@ class AuthDataModel {
       college: json['college'] as String,
       yearLevel: json['yearLevel'] as int,
       sex: json['sex'] as String,
+      consentFlag: (json['consentFlag'] as bool?) ?? false,
       token: json['token'] as String?,
     );
   }
@@ -37,6 +40,7 @@ class AuthDataModel {
       'college': college,
       'yearLevel': yearLevel,
       'sex': sex,
+      'consentFlag': consentFlag,
       'token': token,
     };
   }
