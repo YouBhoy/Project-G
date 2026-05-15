@@ -14,3 +14,7 @@ backend/data/*.sqlite-journal
 backend/.env
 backend/.env.*
 !backend/.env.example
+server/.env
+student-portal/.env
+!server/.env.example
+!student-portal/.env.example

@@ -10,15 +10,33 @@ async function request(path, options = {}, token) {
     headers.Authorization = `Bearer ${token}`;
   }
 
-  const response = await fetch(`${MAIN_API_BASE_URL}${path}`, {
-    ...options,
-    headers,
-    cache: 'no-store'
-  });
+  let response;
+  try {
+    response = await fetch(`${MAIN_API_BASE_URL}${path}`, {
+      ...options,
+      headers,
+      cache: 'no-store'
+    });
+  } catch (networkError) {
+    const err = new Error('Network error. Failed to fetch from API.');
+    err.cause = networkError;
+    err.status = 0;
+    err.path = path;
+    throw err;
+  }
 
-  const payload = await response.json();
-  if (!response.ok || payload.success === false) {
-    const error = new Error(payload.message || 'Request failed.');
+  let payload = null;
+  try {
+    payload = await response.json();
+  } catch (parseError) {
+    const err = new Error('Invalid JSON response from API.');
+    err.status = response.status;
+    err.path = path;
+    throw err;
+  }
+
+  if (!response.ok || payload?.success === false) {
+    const error = new Error(payload?.message || 'Request failed.');
     error.status = response.status;
     error.path = path;
     throw error;

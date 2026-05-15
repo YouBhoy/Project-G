@@ -1238,11 +1238,11 @@ export default function App() {
         ) : null}
 
         {activePage === 'book-appointment' ? (
-          <BookAppointment student={student} />
+          <BookAppointment student={student} token={token} />
         ) : null}
 
         {activePage === 'my-appointments' ? (
-          <MyAppointments student={student} />
+          <MyAppointments student={student} token={token} />
         ) : null}
 
         {activePage === 'emergency-contacts' ? (

@@ -2,7 +2,7 @@
   "name": "spartan-g-root",
   "private": true,
   "scripts": {
-    "dev": "concurrently \"npm start --prefix server\" \"npm run dev --prefix student-portal\""
+    "dev": "concurrently \"npm start --prefix backend\" \"npm start --prefix server\" \"npm run dev --prefix student-portal\""
   },
   "devDependencies": {
     "concurrently": "^9.0.0"

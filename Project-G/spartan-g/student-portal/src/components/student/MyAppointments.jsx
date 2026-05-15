@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { CALENDAR_API_BASE_URL } from '../../config.js';
+import { api } from '../../api.js';
 
 async function requestJson(path, options = {}) {
   try {
@@ -37,7 +38,7 @@ function statusClass(status) {
   return 'pending';
 }
 
-export default function MyAppointments({ student }) {
+export default function MyAppointments({ student, token }) {
   const [bookings, setBookings] = useState([]);
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState('');
@@ -55,6 +56,29 @@ export default function MyAppointments({ student }) {
     setLoading(true);
     setError('');
     try {
+      // Prefer authenticated backend appointments (safer, per-user)
+      if (token) {
+        const res = await api.getStudentAppointments(token);
+        // `res` is expected to be an object like { appointments: [...] }
+        const list = res?.appointments || res || [];
+        // Normalize backend appointment shape to match calendar booking display
+        const normalized = (list || []).map((a) => ({
+          eventId: String(a.appointmentId || a.appointment_id || ''),
+          appointmentId: a.appointmentId || a.appointment_id || null,
+          date: a.slotDate || a.appointmentDate || '',
+          startTime: a.startTime || a.appointmentTime || '',
+          endTime: a.endTime || '',
+          title: a.title || a.facilitatorName || 'Appointment',
+          status: a.status || 'Pending',
+          studentId: studentId,
+          facilitatorName: a.facilitatorName || null
+        }));
+        setBookings(normalized);
+        setLoading(false);
+        return;
+      }
+
+      // Fallback to calendar server if no token (legacy)
       const data = await requestJson(`/api/bookings/${encodeURIComponent(studentId)}`);
       setBookings(normalizeBookings(data));
     } catch (err) {
@@ -75,7 +99,13 @@ export default function MyAppointments({ student }) {
       setLoading(true);
       setError('');
       setMessage('');
-      await requestJson(`/api/bookings/${booking.eventId}/cancel`, { method: 'PATCH' });
+      if (token && booking.appointmentId) {
+        // Use backend to cancel authenticated appointment
+        await api.cancelAppointment(Number(booking.appointmentId), token);
+      } else {
+        // Fallback to calendar server cancellation (legacy)
+        await requestJson(`/api/bookings/${booking.eventId}/cancel`, { method: 'PATCH' });
+      }
       setMessage('Appointment cancelled.');
       await loadBookings();
     } catch (err) {
