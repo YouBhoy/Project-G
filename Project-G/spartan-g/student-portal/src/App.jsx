@@ -7,6 +7,7 @@ import EmergencyContactCard from './components/EmergencyContactCard.jsx';
 import EmergencyContactsLegend from './components/EmergencyContactsLegend.jsx';
 import SafetyPlan from './components/student/SafetyPlan.jsx';
 import MyAppointments from './components/student/MyAppointments.jsx';
+import DescriptiveAnalytics from './components/ogc/DescriptiveAnalytics.jsx';
 
 const studentModules = {
   gawa: {
@@ -774,42 +775,8 @@ export default function App() {
                         </div>
                       ) : <p>No crisis alerts right now.</p>}
                     </article>
-
-                    <article className="summary-card full-width">
-                      <h3>Student Risk Overview</h3>
-                      {ogcDashboard.students?.length ? (
-                        <div className="ogc-table-wrap">
-                          <table className="ogc-table">
-                            <thead>
-                              <tr>
-                                <th>Pseudonym ID</th>
-                                <th>College</th>
-                                <th>Year</th>
-                                <th>Risk</th>
-                                <th>Trajectory</th>
-                                <th>Avg Mood</th>
-                                <th>Avg Energy</th>
-                                <th>Latest Assessment</th>
-                              </tr>
-                            </thead>
-                            <tbody>
-                              {ogcDashboard.students.map((row) => (
-                                <tr key={`${row.pseudoId}-${row.latestClassificationAt || 'none'}`}>
-                                  <td>{row.pseudoId}</td>
-                                  <td>{row.college}</td>
-                                  <td>{row.yearLevel}</td>
-                                  <td><span className={riskClassName(row.latestRiskLevel)}>{row.latestRiskLevel}</span></td>
-                                  <td>{row.latestTrajectory || 'Stable'}</td>
-                                  <td>{row.averageMood ?? '-'}</td>
-                                  <td>{row.averageEnergy ?? '-'}</td>
-                                  <td>{row.latestClassificationAt ? new Date(row.latestClassificationAt).toLocaleString() : '-'}</td>
-                                </tr>
-                              ))}
-                            </tbody>
-                          </table>
-                        </div>
-                      ) : <p>No student data in scope yet.</p>}
-                    </article>
+                    {/* New descriptive analytics component */}
+                    <DescriptiveAnalytics data={ogcDashboard} />
                   </>
                 )}
 
