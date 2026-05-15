@@ -11,6 +11,7 @@ import ogcDashboardRoutes from './routes/ogc/dashboard.js';
 import ogcProfileRoutes from './routes/ogc/profile.js';
 import ogcSlotsRoutes from './routes/ogc/slots.js';
 import ogcAppointmentsRoutes from './routes/ogc/appointments.js';
+import ogcAnalyticsRoutes from './routes/ogc/analytics.js';
 import emergencyContactsRoutes from './routes/emergency-contacts.js';
 
 dotenv.config();
@@ -39,6 +40,7 @@ app.use('/api/ogc/dashboard', ogcDashboardRoutes);
 app.use('/api/ogc', ogcProfileRoutes);
 app.use('/api/ogc/availability', ogcSlotsRoutes);
 app.use('/api/ogc/appointments', ogcAppointmentsRoutes);
+app.use('/api/ogc/analytics', ogcAnalyticsRoutes);
 
 // Emergency contacts (public + admin)
 app.use('/api/emergency-contacts', emergencyContactsRoutes);
