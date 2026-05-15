@@ -1530,6 +1530,34 @@ button:disabled {
   font-size: 14px;
 }
 
+/* Safety plan form */
+.safety-plan-card .safety-plan-form {
+  display: grid;
+  gap: 10px;
+}
+.safety-plan-card label {
+  font-weight: 700;
+}
+.safety-plan-card input[type="text"],
+.safety-plan-card textarea {
+  width: 100%;
+  padding: 8px;
+  border: 1px solid var(--color-gray-200);
+  border-radius: 4px;
+  background: #fff;
+}
+.safety-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-top: 8px;
+}
+.safety-plan-card .hint {
+  margin-top: 8px;
+  font-size: 13px;
+  color: var(--color-gray-500);
+}
+
 .contact-card a {
   color: var(--color-primary);
   text-decoration: none;

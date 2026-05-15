@@ -5,6 +5,7 @@ import ManageAppointments from './components/facilitator/ManageAppointments.jsx'
 import ManageSlots from './components/facilitator/ManageSlots.jsx';
 import EmergencyContactCard from './components/EmergencyContactCard.jsx';
 import EmergencyContactsLegend from './components/EmergencyContactsLegend.jsx';
+import SafetyPlan from './components/student/SafetyPlan.jsx';
 import MyAppointments from './components/student/MyAppointments.jsx';
 
 const studentModules = {
@@ -1388,11 +1389,7 @@ export default function App() {
         ) : null}
 
         {activePage === 'safety-plan' ? (
-          <section className="card">
-            <h2>Digital Safety Plan</h2>
-            <p>Create and manage your personal crisis planning and safety strategies.</p>
-            <p className="hint">⚠️ Safety planning feature coming soon. This feature is under development.</p>
-          </section>
+          <SafetyPlan />
         ) : null}
 
         {error ? <p className="error global-error">{error}</p> : null}
